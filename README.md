@@ -1,4 +1,4 @@
-<center>
+<p align="center">
 <img src="https://raw.githubusercontent.com/SomeStudio/nest-template/main/n1logo.svg" />
-<h1>NestJS Template</h1>
-</center>
+</p>
+<h1 align="center">NestJS Template</h1>
