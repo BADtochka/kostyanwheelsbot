@@ -1,0 +1,9 @@
+version: "3.8"
+services:
+  souless:
+    restart: always
+    image: ghcr.io/badtochka/telegrampay:main
+    build:
+      context: .
+    env_file: stack.env
+networks: {}
