@@ -6,6 +6,7 @@ import { ru } from 'date-fns/locale';
 import 'dotenv/config';
 import { ApiModule } from './api/api.module';
 import { BotModule } from './bot/bot.module';
+import { TelegramUserEntity } from './entities/telegramUser.entity';
 import { UserEntity } from './entities/user.entity';
 
 setDefaultOptions({
@@ -22,7 +23,7 @@ setDefaultOptions({
       database: 'dev',
       port: 5433,
       synchronize: true,
-      entities: [UserEntity],
+      entities: [UserEntity, TelegramUserEntity],
     }),
     ScheduleModule.forRoot(),
     ApiModule,

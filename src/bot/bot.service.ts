@@ -5,6 +5,7 @@ import { convertBytes } from '@/utils/convertBytes';
 import { differenceInDays, format, formatDistanceToNowStrict, fromUnixTime } from 'date-fns';
 import { Action, Command, Ctx, InjectBot, Start, Update } from 'nestjs-telegraf';
 import { Context, Scenes, Telegraf } from 'telegraf';
+import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
 import { SceneContext } from 'telegraf/typings/scenes';
 import { BotHelper } from './bot.interval';
 
@@ -25,19 +26,31 @@ export class BotService {
     const user = await this.apiService.findUserByTelegram(ctx.from?.id!);
 
     if (!user) {
+      await this.apiService.addTelegramUser(ctx.from!);
       ctx.reply('У вас нет доступа к этому боту.');
       return;
     }
 
+    const availableMenu: InlineKeyboardButton[][] = [...mainKeyboard];
+
+    if (user.telegramUser.id === Number(process.env.BOT_OWNER_ID)) {
+      availableMenu.push([
+        {
+          text: '✍🏻 Редактировать аккаунт',
+          callback_data: 'editUsers',
+        },
+      ]);
+    }
+
     if (ctx.callbackQuery) {
       await ctx.editMessageText('Добро пожаловать в меню бота ♿', {
-        reply_markup: { inline_keyboard: mainKeyboard },
+        reply_markup: { inline_keyboard: availableMenu },
       });
       return;
     }
 
     ctx.reply('Добро пожаловать в меню бота ♿', {
-      reply_markup: { inline_keyboard: mainKeyboard },
+      reply_markup: { inline_keyboard: availableMenu },
     });
   }
 
@@ -108,6 +121,11 @@ export class BotService {
     }
 
     ctx.scene.enter('receiptSend');
+  }
+
+  @Action('editUsers')
+  async editUsers(@Ctx() ctx: SceneContext) {
+    ctx.scene.enter('editUsers');
   }
 
   async sendToOwner({ photo, document, senderName }: SendToOwner) {

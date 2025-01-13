@@ -1,3 +1,4 @@
+import { TelegramUserEntity } from '@/entities/telegramUser.entity';
 import { UserEntity } from '@/entities/user.entity';
 import {
   AdminTokenRequest,
@@ -15,6 +16,7 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { addDays, fromUnixTime, getUnixTime } from 'date-fns';
+import { User as TelegramUser } from 'telegraf/types';
 import { Repository } from 'typeorm';
 
 @Injectable()
@@ -28,6 +30,8 @@ export class ApiService {
   public constructor(
     @InjectRepository(UserEntity)
     private userRepository: Repository<UserEntity>,
+    @InjectRepository(TelegramUserEntity)
+    private tgUserRepository: Repository<TelegramUserEntity>,
   ) {
     this.init();
   }
@@ -57,7 +61,11 @@ export class ApiService {
     }
   }
 
-  async getAllUsers() {
+  async addTelegramUser(user: TelegramUser) {
+    await this.tgUserRepository.save({ ...user });
+  }
+
+  async getAllVpnUsers() {
     try {
       const { data } = await this.apiClient<undefined, UsersResponse>({
         method: 'GET',
@@ -71,9 +79,19 @@ export class ApiService {
     }
   }
 
+  async getAllTelegramUsers() {
+    try {
+      const users = await this.tgUserRepository.find();
+      return users;
+    } catch (error) {
+      this.logger.error(error);
+      return [];
+    }
+  }
+
   async updateUsersTable() {
     try {
-      const users = await this.getAllUsers();
+      const users = await this.getAllVpnUsers();
       const usersEntities = this.userRepository.create(users);
       await this.userRepository.save(usersEntities);
       this.logger.log('Successfully update users');
@@ -99,7 +117,7 @@ export class ApiService {
   }
 
   async findUserByTelegram(id: number) {
-    const user = await this.userRepository.findOneBy({ telegramId: id });
+    const user = await this.userRepository.findOne({ where: { telegramUser: { id } }, relations: ['telegramUser'] });
     return user;
   }
 
@@ -107,8 +125,6 @@ export class ApiService {
     try {
       const oldDate = user.expire ? fromUnixTime(user.expire) : new Date();
       const newDate = addDays(oldDate, 31);
-      console.log(oldDate, newDate);
-
       const { data } = await this.apiClient<RenewUserRequest, RenewUserResponse>({
         method: 'PUT',
         url: `/user/${user.username}`,
@@ -123,5 +139,9 @@ export class ApiService {
     } catch (err) {
       this.logger.error(parseError(err));
     }
+  }
+
+  async connectTelegram(username: string, telegramId: number) {
+    await this.userRepository.update({ username }, { telegramUser: { id: telegramId } });
   }
 }

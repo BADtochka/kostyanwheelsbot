@@ -18,7 +18,6 @@ export class ReceiptWizard {
 
   @WizardStep(1)
   async receiptInfo(ctx: WizardContext) {
-    // console.log(ctx.from);
     await ctx.editMessageText('🧾 Отправьте файл с чеком успешной операции об оплате.', {
       reply_markup: {
         inline_keyboard: [backKeyboard],

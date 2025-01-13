@@ -1,5 +1,6 @@
 import { PublicUser } from '@/types/user.api';
-import { Column, Entity, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { TelegramUserEntity } from './telegramUser.entity';
 
 @Entity()
 export class UserEntity implements PublicUser {
@@ -18,6 +19,7 @@ export class UserEntity implements PublicUser {
   @Column('bigint')
   used_traffic: number;
 
-  @Column('bigint', { nullable: true })
-  telegramId: number;
+  @ManyToOne(() => TelegramUserEntity, { nullable: true })
+  @JoinColumn({ name: 'telegramId' })
+  telegramUser: TelegramUserEntity;
 }
