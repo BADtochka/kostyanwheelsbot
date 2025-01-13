@@ -1,6 +1,6 @@
 version: "3.8"
 services:
-  souless:
+  telegrampaybot:
     restart: always
     image: ghcr.io/badtochka/telegrampay:main
     build:
