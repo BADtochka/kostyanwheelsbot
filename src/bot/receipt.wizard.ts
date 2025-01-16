@@ -1,6 +1,6 @@
 import { ApiService } from '@/api/api.service';
 import { backKeyboard } from '@/contants/keyboards';
-import { BOT_DENIED } from '@/contants/messages';
+import { BOT_DENIED, RECEIPT_SEND } from '@/contants/messages';
 import { Logger } from '@nestjs/common';
 import { Action, Ctx, On, Wizard, WizardStep } from 'nestjs-telegraf';
 import { Context, Input } from 'telegraf';
@@ -19,7 +19,7 @@ export class ReceiptWizard {
 
   @WizardStep(1)
   async receiptInfo(ctx: WizardContext) {
-    await ctx.editMessageText('🧾 Отправьте файл с чеком успешной операции об оплате.', {
+    await ctx.editMessageText(RECEIPT_SEND, {
       reply_markup: {
         inline_keyboard: [backKeyboard],
       },
@@ -34,7 +34,7 @@ export class ReceiptWizard {
 
   @WizardStep(2)
   async receiptSended(ctx: Context) {
-    ctx.reply('Пожалуйста отправьте файл с чеком');
+    ctx.reply(RECEIPT_SEND);
   }
 
   @On('document')
