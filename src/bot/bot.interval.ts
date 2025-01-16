@@ -7,7 +7,8 @@ export class BotHelper {
   public constructor(private apiService: ApiService) {}
 
   @Cron('0 0 * * *')
-  updateUsers() {
-    this.apiService.updateUsersTable();
+  async updateUsers() {
+    await this.apiService.init();
+    await this.apiService.updateUsersTable();
   }
 }

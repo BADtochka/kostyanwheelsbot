@@ -1,5 +1,6 @@
 import { ApiService } from '@/api/api.service';
 import { backKeyboard } from '@/contants/keyboards';
+import { BOT_DENIED } from '@/contants/messages';
 import { Logger } from '@nestjs/common';
 import { Action, Ctx, On, Wizard, WizardStep } from 'nestjs-telegraf';
 import { Context, Input } from 'telegraf';
@@ -40,7 +41,7 @@ export class ReceiptWizard {
   async document(@Ctx() ctx: Context<Update.MessageUpdate<Message.DocumentMessage>> & SceneContext) {
     const user = await this.apiService.findUserByTelegram(ctx.from.id);
     if (!user) {
-      ctx.reply('У вас нет доступа к этому боту.');
+      ctx.reply(BOT_DENIED);
       return;
     }
 
@@ -60,7 +61,7 @@ export class ReceiptWizard {
   async photo(@Ctx() ctx: Context<Update.MessageUpdate<Message.PhotoMessage>> & SceneContext) {
     const user = await this.apiService.findUserByTelegram(ctx.from.id);
     if (!user) {
-      ctx.reply('У вас нет доступа к этому боту.');
+      ctx.reply(BOT_DENIED);
       return;
     }
 

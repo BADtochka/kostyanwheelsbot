@@ -8,6 +8,7 @@ import { Context, Scenes, Telegraf } from 'telegraf';
 import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
 import { SceneContext } from 'telegraf/typings/scenes';
 import { BotHelper } from './bot.interval';
+import { BOT_DENIED } from '@/contants/messages';
 
 @Update()
 export class BotService {
@@ -27,7 +28,7 @@ export class BotService {
 
     if (!user) {
       await this.apiService.addTelegramUser(ctx.from!);
-      ctx.reply('У вас нет доступа к этому боту.');
+      ctx.reply(BOT_DENIED);
       return;
     }
 
@@ -58,7 +59,7 @@ export class BotService {
   async profile(@Ctx() ctx: Context) {
     const user = await this.apiService.findUserByTelegram(ctx.from?.id!);
     if (!user) {
-      ctx.reply('У вас нет доступа к этому боту.');
+      ctx.reply(BOT_DENIED);
       return;
     }
     const { expire, status, subscription_url, used_traffic, username } = user;
@@ -99,7 +100,7 @@ export class BotService {
   async receipt(@Ctx() ctx: Scenes.SceneContext) {
     const user = await this.apiService.findUserByTelegram(ctx.callbackQuery?.from.id!);
     if (!user) {
-      ctx.reply('У вас нет доступа к этому боту.');
+      ctx.reply(BOT_DENIED);
       return;
     }
     if (!user.expire) {

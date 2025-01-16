@@ -40,7 +40,7 @@ export class ApiService {
     return this.axiosInstance<Response, AxiosResponse<Response, Request>, Request>(config);
   };
 
-  private async init() {
+  async init() {
     try {
       const adminCreds = stringifyData({
         username: process.env.API_USERNAME,
