@@ -22,4 +22,7 @@ export class UserEntity implements PublicUser {
   @ManyToOne(() => TelegramUserEntity, { nullable: true })
   @JoinColumn({ name: 'telegramId' })
   telegramUser: TelegramUserEntity | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  inviteCode: string | null;
 }

@@ -4,11 +4,8 @@ import { UserEntity } from '@/entities/user.entity';
 import {
   AdminTokenRequest,
   AdminTokenResponse,
-  DisableUserRequest,
-  DisableUserResponse,
   PublicUser,
-  RenewUserRequest,
-  RenewUserResponse,
+  UpdateUserRequest,
   User,
   UsersResponse,
 } from '@/types/user.api';
@@ -110,28 +107,52 @@ export class ApiService {
         url: `/user/${username}`,
       }),
     );
-    if (!error) return data.data;
+    if (!error) return getPublicUser(data.data);
 
     this.logger.error(parseError(error));
     return null;
   }
 
+  async connectByInviteCode(code: string, telegramUser: TelegramUser) {
+    this.logger.log(`connecting by invite code: ${code}`);
+
+    const user = await this.userRepository.findOneBy({ inviteCode: code });
+    if (!user) {
+      this.logger.error('Cannot connect user');
+      return null;
+    }
+    return await this.connectTelegramId(user?.username, telegramUser);
+  }
+
+  async updateUser(username: string, partialUser: Partial<UserEntity>) {
+    const user = await this.userRepository.findOne({ where: { username }, relations: ['telegramUser'] });
+    if (!user) {
+      this.logger.error(`Failed to update user: ${username} (no user finded)`);
+      return null;
+    }
+
+    const { data, error } = await tryCatch(
+      this.apiClient<UpdateUserRequest, User>({
+        method: 'PUT',
+        url: `/user/${username}`,
+        data: partialUser,
+      }),
+    );
+
+    if (error) {
+      this.logger.error(`Failed to update user: ${username}`, error);
+      return null;
+    }
+
+    await this.userRepository.update({ username }, partialUser);
+    const updatedUser = await this.userRepository.findOneBy({ username });
+    return updatedUser;
+  }
+
   async renewUser(user: PublicUser) {
     const oldDate = user.expire ? fromUnixTime(user.expire) : new Date();
     const newDate = addDays(oldDate, 31);
-    const { data, error } = await tryCatch(
-      this.apiClient<RenewUserRequest, RenewUserResponse>({
-        method: 'PUT',
-        url: `/user/${user.username}`,
-        data: {
-          expire: getUnixTime(newDate),
-        },
-      }),
-    );
-    if (error) return this.logger.error(parseError(error));
-
-    const publicUser = getPublicUser(data.data);
-    await this.userRepository.update({ username: user.username }, publicUser);
+    return await this.updateUser(user.username, { expire: getUnixTime(newDate) });
   }
 
   async getAllTelegramUsers() {
@@ -147,28 +168,19 @@ export class ApiService {
     return user;
   }
 
-  async connectTelegramId(username: string, telegramId: number) {
+  async connectTelegramId(username: string, telegramUser: TelegramUser) {
     await this.updateUsersTable();
-    await this.userRepository.update({ username }, { telegramUser: { id: telegramId }, status: 'active' });
+    const updatedUser = await this.updateUser(username, { telegramUser: telegramUser as Required<TelegramUser> });
+    return updatedUser;
   }
 
   async addTelegramUser(user: TelegramUser) {
-    await this.tgUserRepository.save({ ...user });
+    return await this.tgUserRepository.save({ ...user });
   }
 
   async disableUser(user: PublicUser) {
-    const { data, error } = await tryCatch(
-      this.apiClient<DisableUserRequest, DisableUserResponse>({
-        method: 'PUT',
-        url: `/user/${user.username}`,
-        data: {
-          status: 'disabled',
-        },
-      }),
-    );
-
-    if (error) return this.logger.error(parseError(error));
-
-    return data;
+    const updatedUser = await this.updateUser(user.username, { status: 'disabled', telegramUser: null });
+    if (!updatedUser) return this.logger.error('');
+    return updatedUser;
   }
 }

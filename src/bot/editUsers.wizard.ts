@@ -3,7 +3,7 @@ import { backKeyboard, backToUserListKeyboard } from '@/contants/keyboards';
 import { SelectedIdWizard } from '@/types/SelectedIdWizard';
 import { Action, Ctx, Wizard, WizardStep } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
-import { CallbackQuery, InlineKeyboardButton, Update } from 'telegraf/typings/core/types/typegram';
+import { CallbackQuery, InlineKeyboardButton, Update, User } from 'telegraf/typings/core/types/typegram';
 import { WizardContext } from 'telegraf/typings/scenes';
 import { BotService } from './bot.service';
 
@@ -19,13 +19,13 @@ export class EditUsersWizard {
     const keyboards: InlineKeyboardButton[][] = [];
     const createUserKeyboard: InlineKeyboardButton[] = [
       {
-        text: 'Создать пользователя',
+        text: 'Создать пользователя [TODO]',
         callback_data: 'createUser',
       },
     ];
-    const users = await this.apiService.getAllTelegramUsers();
+    const users = await this.apiService.getAllVpnUsers();
 
-    users.map((user) => keyboards.push([{ text: user.username, callback_data: `editUser:${user.id}` }]));
+    users.map((user) => keyboards.push([{ text: user.username, callback_data: `editUser:${user.username}` }]));
     keyboards.push(createUserKeyboard, backKeyboard);
     await ctx.editMessageText('Выберите пользователя для редактирования', {
       reply_markup: {
@@ -56,13 +56,13 @@ export class EditUsersWizard {
     const editActionsKeyboard: InlineKeyboardButton[][] = [
       [
         {
-          text: '🔗 Привязать аккаунт к Marzban',
-          callback_data: `connectUser:${selectedId}`,
+          text: '🔗 Привязать аккаунт к Telegram',
+          callback_data: 'connectUser',
         },
       ],
       [
         {
-          text: '🗓️ Продлить на 1 месяц',
+          text: '🗓️ Продлить на 1 месяц [TODO]',
           callback_data: `updateDate:${selectedId}`,
         },
       ],
@@ -82,16 +82,19 @@ export class EditUsersWizard {
     });
   }
 
-  @Action(/connectUser:.+/)
+  @Action('connectUser')
   async connectUser(
     @Ctx()
     ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext,
   ) {
-    const keyboards: InlineKeyboardButton[][] = [backToUserListKeyboard];
-    const users = await this.apiService.getAllVpnUsers();
+    const keyboards: InlineKeyboardButton[][] = [];
+    const tgUsers = await this.apiService.getAllTelegramUsers();
 
-    users.map((user) => keyboards.push([{ text: user.username, callback_data: `connectUser-final:${user.username}` }]));
-    await ctx.editMessageText(`Выберите marzban аккаунт`, {
+    tgUsers.map((tgUser) =>
+      keyboards.push([{ text: tgUser.username, callback_data: `connectUser-final:${tgUser.id}` }]),
+    );
+    keyboards.push(backToUserListKeyboard);
+    await ctx.editMessageText(`Выберите telegram аккаунт`, {
       reply_markup: {
         inline_keyboard: keyboards,
       },
@@ -103,9 +106,10 @@ export class EditUsersWizard {
     @Ctx()
     ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & SelectedIdWizard,
   ) {
-    const selectedVpnUsername = ctx.callbackQuery.data.split(':')[1];
+    const selectedTelegramId = ctx.callbackQuery.data.split(':')[1];
+    const tgUser = await ctx.getChatMember(Number(selectedTelegramId));
 
-    await this.apiService.connectTelegramId(selectedVpnUsername, Number(ctx.wizard.state.selectedId));
+    await this.apiService.connectTelegramId(ctx.wizard.state.selectedId as string, tgUser.user as Required<User>);
     await ctx.editMessageText('✅ Аккаунты успешно связаны');
     await ctx.scene.leave();
   }
@@ -115,8 +119,9 @@ export class EditUsersWizard {
     @Ctx()
     ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & SelectedIdWizard,
   ) {
-    const selectedId = Number(ctx.wizard.state.selectedId);
-    const user = await this.apiService.findUserByTelegramId(selectedId);
+    const selectedId = ctx.wizard.state.selectedId as string;
+    const user = await this.apiService.getUserData(selectedId);
+
     await this.apiService.disableUser(user!);
 
     await ctx.editMessageText('✅ Аккаунты успешно отключен', {

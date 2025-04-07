@@ -1,11 +1,11 @@
 import { PublicUser, User } from '@/types/user.api';
 
-export const getPublicUser = (user: User): PublicUser => {
+export const getPublicUser = (user: Partial<User>): PublicUser => {
   return {
-    username: user.username,
-    expire: user.expire,
-    status: user.status,
-    subscription_url: user.subscription_url,
-    used_traffic: user.used_traffic,
+    username: user.username || '',
+    expire: user.expire || 0,
+    status: user.status || 'disabled',
+    subscription_url: user.subscription_url || '',
+    used_traffic: user.used_traffic || '',
   };
 };

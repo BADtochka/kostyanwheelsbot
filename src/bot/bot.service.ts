@@ -5,6 +5,7 @@ import { requisites } from '@/contants/requisites';
 import { SendToOwner } from '@/types/sendToOwner';
 import { convertBytes } from '@/utils/convertBytes';
 import { escapeMarkdown } from '@/utils/escapeMarkdown';
+import { getInviteTag } from '@/utils/getInviteTag';
 import { differenceInDays, format, formatDistanceToNowStrict, fromUnixTime } from 'date-fns';
 import { Action, Command, Ctx, InjectBot, Start, Update } from 'nestjs-telegraf';
 import { Context, Scenes, Telegraf } from 'telegraf';
@@ -23,14 +24,30 @@ export class BotService {
   @Start()
   @Command('menu')
   @Action('mainMenu')
-  async onStart(@Ctx() ctx: SceneContext) {
-    const availableMenu: InlineKeyboardButton[][] = [...mainKeyboard];
-
+  async onStart(@Ctx() ctx: SceneContext & Context) {
     if (ctx.scene.current) ctx.scene.leave();
-    const user = await this.apiService.findUserByTelegramId(ctx.from?.id!);
+    const availableMenu: InlineKeyboardButton[][] = [...mainKeyboard];
+    const inviteCode = getInviteTag(ctx.text);
+    let user = await this.apiService.findUserByTelegramId(ctx.from?.id!);
+
+    if (!user && !inviteCode) {
+      await this.apiService.addTelegramUser(ctx.from!);
+      ctx.reply(BOT_DENIED);
+      return;
+    }
+
+    if (!user && inviteCode) {
+      const tgUser = await this.apiService.addTelegramUser(ctx.from!);
+      const newUser = await this.apiService.connectByInviteCode(inviteCode, tgUser);
+      if (!newUser) {
+        ctx.reply('❌ Неверный код приглашения');
+        return;
+      }
+
+      user = newUser;
+    }
 
     if (!user) {
-      await this.apiService.addTelegramUser(ctx.from!);
       ctx.reply(BOT_DENIED);
       return;
     }

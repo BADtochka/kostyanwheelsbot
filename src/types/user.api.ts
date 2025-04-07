@@ -67,3 +67,5 @@ export type DisableUserRequest = {
 };
 
 export type DisableUserResponse = User;
+
+export type UpdateUserRequest = Partial<PublicUser>;
