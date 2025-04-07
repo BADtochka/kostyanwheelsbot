@@ -1,5 +1,9 @@
 import { AxiosError } from 'axios';
 
-export const parseError = (error: AxiosError) => {
-  return error.response?.data;
+export const parseError = (error: AxiosError | Error) => {
+  if ('response' in error) {
+    return error.response?.data;
+  }
+
+  return error;
 };

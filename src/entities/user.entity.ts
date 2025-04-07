@@ -10,16 +10,16 @@ export class UserEntity implements PublicUser {
   @Column('bigint', { nullable: true })
   expire: number | null;
 
-  @Column()
-  status: string;
+  @Column('varchar')
+  status: PublicUser['status'];
 
   @Column()
   subscription_url: string;
 
-  @Column('bigint')
-  used_traffic: number;
+  @Column()
+  used_traffic: string;
 
   @ManyToOne(() => TelegramUserEntity, { nullable: true })
   @JoinColumn({ name: 'telegramId' })
-  telegramUser: TelegramUserEntity;
+  telegramUser: TelegramUserEntity | null;
 }

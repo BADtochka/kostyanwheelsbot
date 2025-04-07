@@ -39,7 +39,7 @@ export class ReceiptWizard {
 
   @On('document')
   async document(@Ctx() ctx: Context<Update.MessageUpdate<Message.DocumentMessage>> & SceneContext) {
-    const user = await this.apiService.findUserByTelegram(ctx.from.id);
+    const user = await this.apiService.findUserByTelegramId(ctx.from.id);
     if (!user) {
       ctx.reply(BOT_DENIED);
       return;
@@ -47,7 +47,7 @@ export class ReceiptWizard {
 
     try {
       const document = Input.fromFileId(ctx.message.document.file_id)!;
-      await this.botService.sendToOwner({ document, senderName: user.username });
+      await this.botService.sendToOwner({ type: 'document', content: document, senderName: user.username });
       await this.apiService.renewUser(user);
       await ctx.reply('✅ Вы успешно продлили подписку на 1 месяц.');
       await ctx.scene.leave();
@@ -59,7 +59,7 @@ export class ReceiptWizard {
 
   @On('photo')
   async photo(@Ctx() ctx: Context<Update.MessageUpdate<Message.PhotoMessage>> & SceneContext) {
-    const user = await this.apiService.findUserByTelegram(ctx.from.id);
+    const user = await this.apiService.findUserByTelegramId(ctx.from.id);
     if (!user) {
       ctx.reply(BOT_DENIED);
       return;
@@ -67,7 +67,7 @@ export class ReceiptWizard {
 
     try {
       const photo = Input.fromFileId(ctx.message.photo.pop()?.file_id!)!;
-      await this.botService.sendToOwner({ photo, senderName: user.username });
+      await this.botService.sendToOwner({ type: 'photo', content: photo, senderName: user.username });
       await this.apiService.renewUser(user);
       await ctx.reply('✅ Вы успешно продлили подписку на 1 месяц.');
       await ctx.scene.leave();

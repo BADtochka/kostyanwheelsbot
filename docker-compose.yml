@@ -6,4 +6,8 @@ services:
     build:
       context: .
     env_file: stack.env
+  db:
+    image: postgres
+    restart: always
+    env_file: stack.env
 networks: {}

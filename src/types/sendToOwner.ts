@@ -1,5 +1,5 @@
 export type SendToOwner = {
-  document?: string;
-  photo?: string;
+  type?: 'document' | 'photo' | 'text';
+  content: string;
   senderName: string;
 };

@@ -1,8 +1,11 @@
+import { BotHelper } from '@/bot/bot.interval';
 import { TelegramUserEntity } from '@/entities/telegramUser.entity';
 import { UserEntity } from '@/entities/user.entity';
 import {
   AdminTokenRequest,
   AdminTokenResponse,
+  DisableUserRequest,
+  DisableUserResponse,
   PublicUser,
   RenewUserRequest,
   RenewUserResponse,
@@ -12,7 +15,8 @@ import {
 import { getPublicUser } from '@/utils/getPublicUser';
 import { parseError } from '@/utils/parseError';
 import { stringifyData } from '@/utils/stringifyData';
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { tryCatch } from '@/utils/tryCatch';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { addDays, fromUnixTime, getUnixTime } from 'date-fns';
@@ -25,6 +29,9 @@ export class ApiService {
     baseURL: process.env.API_HOST,
   };
   private axiosInstance: AxiosInstance = axios.create(this._axioxConfig);
+  private apiClient = <Request, Response>(config: Omit<AxiosRequestConfig<Request>, 'baseURL'>) => {
+    return this.axiosInstance<Response, AxiosResponse<Response, Request>, Request>(config);
+  };
   private readonly logger = new Logger(ApiService.name);
 
   public constructor(
@@ -32,116 +39,136 @@ export class ApiService {
     private userRepository: Repository<UserEntity>,
     @InjectRepository(TelegramUserEntity)
     private tgUserRepository: Repository<TelegramUserEntity>,
+    @Inject(forwardRef(() => BotHelper))
+    private botHelper: BotHelper,
   ) {
     this.init();
   }
 
-  private apiClient = <Request, Response>(config: Omit<AxiosRequestConfig<Request>, 'baseURL'>) => {
-    return this.axiosInstance<Response, AxiosResponse<Response, Request>, Request>(config);
-  };
-
   async init() {
-    try {
-      const adminCreds = stringifyData({
-        username: process.env.API_USERNAME,
-        password: process.env.API_PASSWORD,
-      });
+    const { error } = await tryCatch(this.authLogin());
+    if (!error) return this.updateUsersTable();
 
-      const { data } = await this.apiClient<AdminTokenRequest, AdminTokenResponse>({
-        method: 'POST',
-        url: '/admin/token',
-        data: adminCreds,
-      });
+    this.botHelper.isCrashed = true;
+    this.logger.error(parseError(error));
+  }
 
-      this.axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${data.access_token}`;
-      this.logger.log(`Successfully ${data.token_type} auth`);
-      this.updateUsersTable();
-    } catch (err) {
-      throw new UnauthorizedException(parseError(err));
+  async authLogin() {
+    const adminCreds = stringifyData({
+      username: process.env.API_USERNAME,
+      password: process.env.API_PASSWORD,
+    });
+
+    const { data } = await this.apiClient<AdminTokenRequest, AdminTokenResponse>({
+      method: 'POST',
+      url: '/admin/token',
+      data: adminCreds,
+    });
+
+    this.axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${data.access_token}`;
+    this.logger.log(`Successfully ${data.token_type} auth`);
+  }
+
+  async getAllVpnUsers() {
+    const { data, error } = await tryCatch(
+      this.apiClient<undefined, UsersResponse>({
+        method: 'GET',
+        url: `/users`,
+      }),
+    );
+    if (!error) return data.data.users.map(getPublicUser);
+
+    this.logger.error(parseError(error));
+    return [];
+  }
+
+  async updateUsersTable() {
+    const { data: apiUsers, error: apiError } = await tryCatch(this.getAllVpnUsers());
+    if (apiError) {
+      this.botHelper.isCrashed = true;
+      this.logger.error(`Error on getting API users`, parseError(apiError));
+      return false;
     }
+
+    const oldUsers = await this.userRepository.find({ relations: ['telegramUser'] });
+    const inactiveUsers = oldUsers.filter(
+      (oldUser) => !apiUsers!.some((apiUser) => apiUser.username === oldUser.username),
+    );
+    await this.userRepository.remove(inactiveUsers);
+    const userEntities = this.userRepository.create(apiUsers);
+    const { error } = await tryCatch(this.userRepository.save(userEntities));
+    if (!error) return;
+
+    this.logger.error(`Error on update users`, parseError(error));
+    return false;
+  }
+
+  async getUserData(username: string) {
+    const { data, error } = await tryCatch(
+      this.apiClient<undefined, User>({
+        method: 'GET',
+        url: `/user/${username}`,
+      }),
+    );
+    if (!error) return data.data;
+
+    this.logger.error(parseError(error));
+    return null;
+  }
+
+  async renewUser(user: PublicUser) {
+    const oldDate = user.expire ? fromUnixTime(user.expire) : new Date();
+    const newDate = addDays(oldDate, 31);
+    const { data, error } = await tryCatch(
+      this.apiClient<RenewUserRequest, RenewUserResponse>({
+        method: 'PUT',
+        url: `/user/${user.username}`,
+        data: {
+          expire: getUnixTime(newDate),
+        },
+      }),
+    );
+    if (error) return this.logger.error(parseError(error));
+
+    const publicUser = getPublicUser(data.data);
+    await this.userRepository.update({ username: user.username }, publicUser);
+  }
+
+  async getAllTelegramUsers() {
+    const { data: users, error } = await tryCatch(this.tgUserRepository.find());
+    if (!error) return users;
+
+    this.logger.error(error);
+    return [];
+  }
+
+  async findUserByTelegramId(id: number) {
+    const user = await this.userRepository.findOne({ where: { telegramUser: { id } }, relations: ['telegramUser'] });
+    return user;
+  }
+
+  async connectTelegramId(username: string, telegramId: number) {
+    await this.updateUsersTable();
+    await this.userRepository.update({ username }, { telegramUser: { id: telegramId }, status: 'active' });
   }
 
   async addTelegramUser(user: TelegramUser) {
     await this.tgUserRepository.save({ ...user });
   }
 
-  async getAllVpnUsers() {
-    try {
-      const { data } = await this.apiClient<undefined, UsersResponse>({
-        method: 'GET',
-        url: `/users`,
-      });
-
-      return data.users.map(getPublicUser);
-    } catch (err) {
-      this.logger.error(parseError(err));
-      return [];
-    }
-  }
-
-  async getAllTelegramUsers() {
-    try {
-      const users = await this.tgUserRepository.find();
-      return users;
-    } catch (error) {
-      this.logger.error(error);
-      return [];
-    }
-  }
-
-  async updateUsersTable() {
-    try {
-      const users = await this.getAllVpnUsers();
-      const usersEntities = this.userRepository.create(users);
-      await this.userRepository.save(usersEntities);
-      this.logger.log('Successfully update users');
-      return true;
-    } catch (err) {
-      this.logger.error(`Something went error`, parseError(err));
-      return false;
-    }
-  }
-
-  async getUserData(username: string) {
-    try {
-      const { data } = await this.apiClient<undefined, User>({
-        method: 'GET',
-        url: `/user/${username}`,
-      });
-
-      return data;
-    } catch (err) {
-      this.logger.error(parseError(err));
-      return null;
-    }
-  }
-
-  async findUserByTelegram(id: number) {
-    const user = await this.userRepository.findOne({ where: { telegramUser: { id } }, relations: ['telegramUser'] });
-    return user;
-  }
-
-  async renewUser(user: PublicUser) {
-    try {
-      const oldDate = user.expire ? fromUnixTime(user.expire) : new Date();
-      const newDate = addDays(oldDate, 31);
-      const { data } = await this.apiClient<RenewUserRequest, RenewUserResponse>({
+  async disableUser(user: PublicUser) {
+    const { data, error } = await tryCatch(
+      this.apiClient<DisableUserRequest, DisableUserResponse>({
         method: 'PUT',
         url: `/user/${user.username}`,
         data: {
-          expire: getUnixTime(newDate),
+          status: 'disabled',
         },
-      });
+      }),
+    );
 
-      const publicUser = getPublicUser(data);
+    if (error) return this.logger.error(parseError(error));
 
-      await this.userRepository.update({ username: user.username }, publicUser);
-    } catch (err) {
-      this.logger.error(parseError(err));
-    }
-  }
-
-  async connectTelegram(username: string, telegramId: number) {
-    await this.userRepository.update({ username }, { telegramUser: { id: telegramId } });
+    return data;
   }
 }

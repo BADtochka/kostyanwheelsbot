@@ -39,8 +39,8 @@ export interface User {
   on_hold_timeout: string;
   auto_delete_in_days: number;
   username: string;
-  status: string;
-  used_traffic: number;
+  status: 'active' | 'disabled' | 'on_hold' | 'limited' | 'expired';
+  used_traffic: string;
   lifetime_used_traffic: number;
   created_at: string;
   links: any[];
@@ -61,3 +61,9 @@ export type RenewUserRequest = {
 };
 
 export type RenewUserResponse = User;
+
+export type DisableUserRequest = {
+  status: PublicUser['status'];
+};
+
+export type DisableUserResponse = User;
