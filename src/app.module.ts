@@ -22,7 +22,7 @@ setDefaultOptions({
       password: 'dev',
       database: 'dev',
       port: process.env.NODE_ENV === 'development' ? 5433 : 5432,
-      synchronize: process.env.NODE_ENV === 'development',
+      synchronize: true,
       entities: [UserEntity, TelegramUserEntity],
     }),
     ScheduleModule.forRoot(),
