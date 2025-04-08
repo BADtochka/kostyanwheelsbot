@@ -39,11 +39,6 @@ export class EditUsersWizard {
     this.botService.onStart(ctx);
   }
 
-  @Action('backToEditUsers')
-  backToEditUsers(ctx: WizardContext) {
-    this.getAllUsers(ctx);
-  }
-
   @Action(/editUser:.+/)
   async editUser(
     @Ctx()
@@ -58,6 +53,12 @@ export class EditUsersWizard {
         {
           text: '🔗 Привязать аккаунт к Telegram',
           callback_data: 'connectUser',
+        },
+      ],
+      [
+        {
+          text: 'Сгенерировать код приглашения',
+          callback_data: `inviteCode:${selectedId}`,
         },
       ],
       [
@@ -124,10 +125,32 @@ export class EditUsersWizard {
 
     await this.apiService.disableUser(user!);
 
-    await ctx.editMessageText('✅ Аккаунты успешно отключен', {
+    await ctx.scene.leave();
+    await ctx.editMessageText('✅ Аккаунт успешно отключен', {
       reply_markup: {
         inline_keyboard: [backToUserListKeyboard],
       },
     });
+  }
+
+  @Action(/inviteCode:.+/)
+  async inviteCodeGenerate(
+    @Ctx()
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & SelectedIdWizard,
+  ) {
+    const selectedId = ctx.wizard.state.selectedId as string;
+    const user = await this.apiService.getUserData(selectedId);
+    const { code } = await this.apiService.addInviteCode(user!);
+
+    await ctx.scene.leave();
+    await ctx.editMessageText(
+      `Пользователь: ${user?.username} \n[Принять приглашение](https://t.me/KostyanWheelsBot?start=${code})`,
+      {
+        reply_markup: {
+          inline_keyboard: [backToUserListKeyboard],
+        },
+        parse_mode: 'Markdown',
+      },
+    );
   }
 }

@@ -9,6 +9,7 @@ import {
   User,
   UsersResponse,
 } from '@/types/user.api';
+import { generateCode } from '@/utils/generateCode';
 import { getPublicUser } from '@/utils/getPublicUser';
 import { parseError } from '@/utils/parseError';
 import { stringifyData } from '@/utils/stringifyData';
@@ -145,7 +146,7 @@ export class ApiService {
     }
 
     await this.userRepository.update({ username }, partialUser);
-    const updatedUser = await this.userRepository.findOneBy({ username });
+    const updatedUser = await this.userRepository.findOne({ where: { username }, relations: ['telegramUser'] });
     return updatedUser;
   }
 
@@ -170,7 +171,10 @@ export class ApiService {
 
   async connectTelegramId(username: string, telegramUser: TelegramUser) {
     await this.updateUsersTable();
-    const updatedUser = await this.updateUser(username, { telegramUser: telegramUser as Required<TelegramUser> });
+    const updatedUser = await this.updateUser(username, {
+      telegramUser: telegramUser as Required<TelegramUser>,
+      status: 'active',
+    });
     return updatedUser;
   }
 
@@ -180,7 +184,17 @@ export class ApiService {
 
   async disableUser(user: PublicUser) {
     const updatedUser = await this.updateUser(user.username, { status: 'disabled', telegramUser: null });
-    if (!updatedUser) return this.logger.error('');
+    if (!updatedUser) return this.logger.error(`failed to disable user: ${user.username}`);
     return updatedUser;
+  }
+
+  async addInviteCode(user: PublicUser) {
+    const code = generateCode(6);
+    const updatedUser = await this.updateUser(user.username, { inviteCode: code });
+    if (!updatedUser) {
+      this.logger.error(`failed to add invite code: ${user.username}`);
+      return { code: null, updatedUser: null };
+    }
+    return { code, updatedUser };
   }
 }

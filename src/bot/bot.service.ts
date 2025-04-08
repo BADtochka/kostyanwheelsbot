@@ -51,6 +51,7 @@ export class BotService {
       ctx.reply(BOT_DENIED);
       return;
     }
+    console.log(user);
 
     if (user.telegramUser?.id === Number(process.env.BOT_OWNER_ID)) {
       availableMenu.push([
