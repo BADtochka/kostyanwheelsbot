@@ -1,6 +1,7 @@
 import { ApiService } from '@/api/api.service';
 import { backKeyboard, backToUserListKeyboard } from '@/contants/keyboards';
 import { SelectedIdWizard } from '@/types/SelectedIdWizard';
+import { escapeMarkdown } from '@/utils/escapeMarkdown';
 import { Action, Ctx, Wizard, WizardStep } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { CallbackQuery, InlineKeyboardButton, Update, User } from 'telegraf/typings/core/types/typegram';
@@ -144,7 +145,7 @@ export class EditUsersWizard {
 
     await ctx.scene.leave();
     await ctx.editMessageText(
-      `Пользователь: ${user?.username} \n[Принять приглашение](https://t.me/KostyanWheelsBot?start=${code})`,
+      `Пользователь: ${escapeMarkdown(user?.username)} \n[Принять приглашение](https://t.me/KostyanWheelsBot?start=${code})`,
       {
         reply_markup: {
           inline_keyboard: [backToUserListKeyboard],
