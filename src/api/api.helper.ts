@@ -15,15 +15,18 @@ export class ApiHelper {
   private logger = new Logger(ApiHelper.name);
 
   async initOwnerAccount() {
-    const isExist = await this.userRepository.findOneBy({ username: 'BAD' });
+    const isExist = this.userRepository.exists({ where: { username: 'BAD' } });
+    if (!isExist) return;
+
+    const user = await this.userRepository.findOneBy({ username: 'BAD' });
     const botName = process.env.NODE_ENV === 'development' ? 'KostyanWheelsDevBot' : 'KostyanWheelsBot';
-    if (isExist && !isExist.inviteCode) {
-      const { code } = await this.apiService.addInviteCode(isExist);
+    if (user && !user.inviteCode) {
+      const { code } = await this.apiService.addInviteCode(user);
       this.logger.log(`Owner invite code: https://t.me/${botName}?start=${code}`);
       return;
     }
 
-    this.logger.log(`Owner invite code: https://t.me/${botName}?start=${isExist?.inviteCode}`);
+    this.logger.log(`Owner invite code: https://t.me/${botName}?start=${user?.inviteCode}`);
 
     // TODO: add create account
   }
