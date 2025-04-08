@@ -46,6 +46,7 @@ export class ApiService {
   }
 
   async init() {
+    this.logger.log('Start initialization')
     const { error } = await tryCatch(this.authLogin());
     if (!error) {
       await this.updateUsersTable();
