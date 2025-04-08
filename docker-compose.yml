@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   bot:
-    restart: always
+    restart: unless-stopped
     image: telegrampay
     build:
       context: .
@@ -10,6 +10,10 @@ services:
       - db
   db:
     image: postgres
-    restart: always
+    restart: unless-stopped
     env_file: stack.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 networks: {}
+volumes:
+  postgres_data:
