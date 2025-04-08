@@ -1,8 +1,8 @@
 version: "3.8"
 services:
-  telegrampaybot:
+  bot:
     restart: always
-    image: ghcr.io/badtochka/telegrampay:main
+    image: telegrampay
     build:
       context: .
     env_file: stack.env
