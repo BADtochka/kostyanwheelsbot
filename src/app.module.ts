@@ -17,11 +17,11 @@ setDefaultOptions({
   imports: [
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: '192.168.1.30',
+      host: process.env.NODE_ENV === 'development' ? '192.168.1.30' : 'db',
       username: 'dev',
       password: 'dev',
       database: 'dev',
-      port: 5433,
+      port: process.env.NODE_ENV === 'development' ? 5433 : 5432,
       synchronize: true,
       entities: [UserEntity, TelegramUserEntity],
     }),
