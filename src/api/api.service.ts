@@ -20,6 +20,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { addDays, fromUnixTime, getUnixTime } from 'date-fns';
 import { User as TelegramUser } from 'telegraf/types';
 import { Repository } from 'typeorm';
+import { ApiHelper } from './api.helper';
 
 @Injectable()
 export class ApiService {
@@ -39,13 +40,18 @@ export class ApiService {
     private tgUserRepository: Repository<TelegramUserEntity>,
     @Inject(forwardRef(() => BotHelper))
     private botHelper: BotHelper,
+    private apiHelper: ApiHelper,
   ) {
     this.init();
   }
 
   async init() {
     const { error } = await tryCatch(this.authLogin());
-    if (!error) return this.updateUsersTable();
+    if (!error) {
+      await this.updateUsersTable();
+      this.apiHelper.initOwnerAccount();
+      return;
+    }
 
     this.botHelper.isCrashed = true;
     this.logger.error(parseError(error));

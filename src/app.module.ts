@@ -22,8 +22,10 @@ setDefaultOptions({
       password: 'dev',
       database: 'dev',
       port: process.env.NODE_ENV === 'development' ? 5433 : 5432,
-      synchronize: true,
+      synchronize: process.env.NODE_ENV === 'development',
       entities: [UserEntity, TelegramUserEntity],
+      migrationsRun: true, // automatically run migrations on app start
+      migrations: [__dirname + '/migrations/*.ts'],
     }),
     ScheduleModule.forRoot(),
     ApiModule,
