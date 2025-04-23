@@ -11,6 +11,7 @@ import {
 } from '@/types/user.api';
 import { generateCode } from '@/utils/generateCode';
 import { getPublicUser } from '@/utils/getPublicUser';
+import { parseEnv } from '@/utils/parceEnv';
 import { parseError } from '@/utils/parseError';
 import { stringifyData } from '@/utils/stringifyData';
 import { tryCatch } from '@/utils/tryCatch';
@@ -25,7 +26,7 @@ import { ApiHelper } from './api.helper';
 @Injectable()
 export class ApiService {
   private readonly _axioxConfig: AxiosRequestConfig = {
-    baseURL: process.env.API_HOST,
+    baseURL: parseEnv('API_HOST'),
   };
   private axiosInstance: AxiosInstance = axios.create(this._axioxConfig);
   private apiClient = <Request, Response>(config: Omit<AxiosRequestConfig<Request>, 'baseURL'>) => {
@@ -46,7 +47,7 @@ export class ApiService {
   }
 
   async init() {
-    this.logger.log('Start initialization')
+    this.logger.log('Start initialization');
     const { error } = await tryCatch(this.authLogin());
     if (!error) {
       await this.updateUsersTable();
@@ -60,8 +61,8 @@ export class ApiService {
 
   async authLogin() {
     const adminCreds = stringifyData({
-      username: process.env.API_USERNAME,
-      password: process.env.API_PASSWORD,
+      username: parseEnv('API_USERNAME'),
+      password: parseEnv('API_PASSWORD'),
     });
 
     const { data } = await this.apiClient<AdminTokenRequest, AdminTokenResponse>({

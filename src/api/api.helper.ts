@@ -1,3 +1,4 @@
+import { isDev } from '@/contants/isDev';
 import { UserEntity } from '@/entities/user.entity';
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -19,7 +20,7 @@ export class ApiHelper {
     if (!isExist) return;
 
     const user = await this.userRepository.findOneBy({ username: 'BAD' });
-    const botName = process.env.NODE_ENV === 'development' ? 'KostyanWheelsDevBot' : 'KostyanWheelsBot';
+    const botName = isDev ? 'KostyanWheelsDevBot' : 'KostyanWheelsBot';
     if (user && !user.inviteCode) {
       const { code } = await this.apiService.addInviteCode(user);
       this.logger.log(`Owner invite code: https://t.me/${botName}?start=${code}`);

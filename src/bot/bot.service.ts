@@ -6,6 +6,7 @@ import { SendToOwner } from '@/types/sendToOwner';
 import { convertBytes } from '@/utils/convertBytes';
 import { escapeMarkdown } from '@/utils/escapeMarkdown';
 import { getInviteTag } from '@/utils/getInviteTag';
+import { parseEnv } from '@/utils/parceEnv';
 import { differenceInDays, format, formatDistanceToNowStrict, fromUnixTime } from 'date-fns';
 import { Action, Command, Ctx, InjectBot, Start, Update } from 'nestjs-telegraf';
 import { Context, Scenes, Telegraf } from 'telegraf';
@@ -52,7 +53,7 @@ export class BotService {
       return;
     }
 
-    if (user.telegramUser?.id === Number(process.env.BOT_OWNER_ID)) {
+    if (user.telegramUser?.id === Number(parseEnv('BOT_OWNER_ID'))) {
       availableMenu.push([
         {
           text: '✍🏻 Редактировать аккаунт',
@@ -158,15 +159,15 @@ ${
   async sendToOwner({ type, content, senderName }: SendToOwner) {
     switch (type) {
       case 'document':
-        this.bot.telegram.sendDocument(process.env.BOT_OWNER_ID, content, {
+        this.bot.telegram.sendDocument(parseEnv('BOT_OWNER_ID'), content, {
           caption: `Вложение от #${senderName}`,
         });
       case 'photo':
-        this.bot.telegram.sendPhoto(process.env.BOT_OWNER_ID, content, {
+        this.bot.telegram.sendPhoto(parseEnv('BOT_OWNER_ID'), content, {
           caption: `Вложение от #${senderName}`,
         });
       case 'text':
-        this.bot.telegram.sendMessage(process.env.BOT_OWNER_ID, content);
+        this.bot.telegram.sendMessage(parseEnv('BOT_OWNER_ID'), content);
     }
   }
 }
