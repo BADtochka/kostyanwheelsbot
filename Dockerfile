@@ -1,4 +1,4 @@
-FROM node:23-slim AS base
+FROM dockerhub.timeweb.cloud/library/node:23-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
