@@ -26,7 +26,7 @@ import { ApiHelper } from './api.helper';
 @Injectable()
 export class ApiService {
   private readonly _axioxConfig: AxiosRequestConfig = {
-    baseURL: parseEnv('API_HOST'),
+    baseURL: `${parseEnv('API_HOST')}/api`,
   };
   private axiosInstance: AxiosInstance = axios.create(this._axioxConfig);
   private apiClient = <Request, Response>(config: Omit<AxiosRequestConfig<Request>, 'baseURL'>) => {
@@ -123,11 +123,11 @@ export class ApiService {
   }
 
   async connectByInviteCode(code: string, telegramUser: TelegramUser) {
-    this.logger.log(`connecting by invite code: ${code}`);
+    this.logger.log(`${telegramUser.username} connecting by invite code: ${code}`);
 
     const user = await this.userRepository.findOneBy({ inviteCode: code });
     if (!user) {
-      this.logger.error('Cannot connect user');
+      this.logger.error(`Cannot connect user ${telegramUser.username}`);
       return null;
     }
     return await this.connectTelegramId(user?.username, telegramUser);

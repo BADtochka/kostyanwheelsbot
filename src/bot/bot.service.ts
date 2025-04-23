@@ -87,6 +87,8 @@ export class BotService {
       ? `${format(parsedDate, 'dd.MM.yyyy')} (${formatDistanceToNowStrict(parsedDate)})`
       : '∞';
 
+    const subPath = new URL(user.subscription_url).pathname;
+
     const profile = `\`💡 Статистика обновляется в 0:00 по МСК\`
 
 😎 Пользователь: ${escapeMarkdown(user.username)}
@@ -99,7 +101,10 @@ ${
   user.status === 'active' &&
   `📅 Действует до: ${dateToExpire}
 
-🔗 Ссылка на подписку \`\`\`${user.subscription_url}\`\`\``
+🔗 Ссылка на подписку \`\`\`${user.subscription_url}\`\`\`
+
+🔗 Зеркало \`\`\`${parseEnv('API_HOST')}${subPath}\`\`\`
+`
 }`.replace(/true|false/, '');
 
     await ctx.editMessageText(profile, {
