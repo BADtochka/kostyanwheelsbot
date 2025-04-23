@@ -14,7 +14,7 @@ export const DB_DEV_CONFIG: TypeOrmModuleOptions = {
 
 export const DB_PROD_CONFIG: TypeOrmModuleOptions = {
   type: 'postgres',
-  host: 'db',
+  host: parseEnv('POSTGRES_HOST'),
   username: parseEnv('POSTGRES_USER'),
   password: parseEnv('POSTGRES_PASSWORD'),
   database: parseEnv('POSTGRES_DB'),
