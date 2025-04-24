@@ -2,6 +2,7 @@ import { ApiService } from '@/api/api.service';
 import { backKeyboard, backToUserListKeyboard } from '@/contants/keyboards';
 import { SelectedIdWizard } from '@/types/SelectedIdWizard';
 import { escapeMarkdown } from '@/utils/escapeMarkdown';
+import { tryCatch } from '@/utils/tryCatch';
 import { Action, Ctx, Wizard, WizardStep } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { CallbackQuery, InlineKeyboardButton, Update, User } from 'telegraf/typings/core/types/typegram';
@@ -58,7 +59,7 @@ export class EditUsersWizard {
       ],
       [
         {
-          text: 'Сгенерировать код приглашения',
+          text: '🎟️ Сгенерировать код приглашения',
           callback_data: `inviteCode:${selectedId}`,
         },
       ],
@@ -142,16 +143,18 @@ export class EditUsersWizard {
     const selectedId = ctx.wizard.state.selectedId as string;
     const user = await this.apiService.getUserData(selectedId);
     const { code } = await this.apiService.addInviteCode(user!);
+    const inviteMessage = `Для доступа к боту примите приглашение для привязки аккаунта. \nПользователь: ${escapeMarkdown(user?.username)} \n[Принять приглашение](https://t.me/${ctx.botInfo.username}?start=${code})`;
 
     await ctx.scene.leave();
-    await ctx.editMessageText(
-      `Пользователь: ${escapeMarkdown(user?.username)} \n[Принять приглашение](https://t.me/KostyanWheelsBot?start=${code})`,
-      {
-        reply_markup: {
-          inline_keyboard: [backToUserListKeyboard],
-        },
-        parse_mode: 'Markdown',
-      },
-    );
+    const { error } = await tryCatch(ctx.sendMessage(inviteMessage, { parse_mode: 'Markdown' }));
+    if (!error) {
+      await ctx.editMessageText('✅ Приглашение отправлено пользователю');
+      return;
+    }
+
+    await ctx.editMessageText(inviteMessage, {
+      reply_markup: { inline_keyboard: [backToUserListKeyboard] },
+      parse_mode: 'Markdown',
+    });
   }
 }
