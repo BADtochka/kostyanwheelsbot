@@ -12,12 +12,10 @@ import { Action, Command, Ctx, InjectBot, Start, Update } from 'nestjs-telegraf'
 import { Context, Scenes, Telegraf } from 'telegraf';
 import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
 import { SceneContext } from 'telegraf/typings/scenes';
-import { BotHelper } from './bot.interval';
 
 @Update()
 export class BotService {
   constructor(
-    private botHelper: BotHelper,
     private apiService: ApiService,
     @InjectBot() private bot: Telegraf<Context>,
   ) {}

@@ -1,8 +1,7 @@
 import { ApiService } from '@/api/api.service';
 import { backKeyboard, backToUserListKeyboard } from '@/contants/keyboards';
-import { SelectedIdWizard } from '@/types/SelectedIdWizard';
+import { AppWizard } from '@/types/SelectedIdWizard';
 import { escapeMarkdown } from '@/utils/escapeMarkdown';
-import { tryCatch } from '@/utils/tryCatch';
 import { Action, Ctx, Wizard, WizardStep } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { CallbackQuery, InlineKeyboardButton, Update, User } from 'telegraf/typings/core/types/typegram';
@@ -44,11 +43,11 @@ export class EditUsersWizard {
   @Action(/editUser:.+/)
   async editUser(
     @Ctx()
-    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & SelectedIdWizard,
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
   ) {
     const keyboards: InlineKeyboardButton[][] = [];
-    const selectedId = ctx.callbackQuery.data.split(':')[1];
-    ctx.wizard.state.selectedId = selectedId;
+    const vpnUsername = ctx.callbackQuery.data.split(':')[1];
+    ctx.wizard.state.vpnUsername = vpnUsername;
 
     const editActionsKeyboard: InlineKeyboardButton[][] = [
       [
@@ -60,19 +59,19 @@ export class EditUsersWizard {
       [
         {
           text: '🎟️ Сгенерировать код приглашения',
-          callback_data: `inviteCode:${selectedId}`,
+          callback_data: `inviteCode:${vpnUsername}`,
         },
       ],
       [
         {
           text: '🗓️ Продлить на 1 месяц [TODO]',
-          callback_data: `updateDate:${selectedId}`,
+          callback_data: `updateDate:${vpnUsername}`,
         },
       ],
       [
         {
           text: '❌ Отключить аккаунт',
-          callback_data: `disableUser:${selectedId}`,
+          callback_data: `disableUser:${vpnUsername}`,
         },
       ],
     ];
@@ -107,12 +106,12 @@ export class EditUsersWizard {
   @Action(/connectUser-final:.+/)
   async connectUserFinal(
     @Ctx()
-    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & SelectedIdWizard,
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
   ) {
-    const selectedTelegramId = ctx.callbackQuery.data.split(':')[1];
-    const tgUser = await ctx.getChatMember(Number(selectedTelegramId));
+    const telegramId = ctx.callbackQuery.data.split(':')[1];
+    const tgUser = await ctx.getChatMember(Number(telegramId));
 
-    await this.apiService.connectTelegramId(ctx.wizard.state.selectedId as string, tgUser.user as Required<User>);
+    await this.apiService.connectTelegramId(ctx.wizard.state.vpnUsername, tgUser.user as Required<User>);
     await ctx.editMessageText('✅ Аккаунты успешно связаны');
     await ctx.scene.leave();
   }
@@ -120,10 +119,9 @@ export class EditUsersWizard {
   @Action(/disableUser:.+/)
   async deleteVpnUser(
     @Ctx()
-    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & SelectedIdWizard,
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
   ) {
-    const selectedId = ctx.wizard.state.selectedId as string;
-    const user = await this.apiService.getUserData(selectedId);
+    const user = await this.apiService.getUserData(ctx.wizard.state.vpnUsername);
 
     await this.apiService.disableUser(user!);
 
@@ -138,20 +136,13 @@ export class EditUsersWizard {
   @Action(/inviteCode:.+/)
   async inviteCodeGenerate(
     @Ctx()
-    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & SelectedIdWizard,
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
   ) {
-    const selectedId = ctx.wizard.state.selectedId as string;
-    const user = await this.apiService.getUserData(selectedId);
+    const user = await this.apiService.getUserData(ctx.wizard.state.vpnUsername);
     const { code } = await this.apiService.addInviteCode(user!);
     const inviteMessage = `Для доступа к боту примите приглашение для привязки аккаунта. \nПользователь: ${escapeMarkdown(user?.username)} \n[Принять приглашение](https://t.me/${ctx.botInfo.username}?start=${code})`;
 
     await ctx.scene.leave();
-    const { error } = await tryCatch(ctx.sendMessage(inviteMessage, { parse_mode: 'Markdown' }));
-    if (!error) {
-      await ctx.editMessageText('✅ Приглашение отправлено пользователю');
-      return;
-    }
-
     await ctx.editMessageText(inviteMessage, {
       reply_markup: { inline_keyboard: [backToUserListKeyboard] },
       parse_mode: 'Markdown',

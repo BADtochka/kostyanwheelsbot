@@ -1,5 +1,5 @@
-export type SelectedIdWizard = {
+export type AppWizard = {
   wizard: {
-    state: { selectedId: string | number }; // укажите правильный тип
+    state: { vpnUsername: string }; // укажите правильный тип
   };
 };
