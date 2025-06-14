@@ -5,8 +5,8 @@ import { convertBytes } from '@/utils/convertBytes';
 import { escapeMarkdown } from '@/utils/escapeMarkdown';
 import { randomUUID } from 'crypto';
 import { addDays, format, formatDistanceToNowStrict, fromUnixTime, getUnixTime } from 'date-fns';
-import { Action, Ctx, Wizard, WizardStep } from 'nestjs-telegraf';
-import { Context } from 'telegraf';
+import { Action, Ctx, InjectBot, Wizard, WizardStep } from 'nestjs-telegraf';
+import { Context, Telegraf } from 'telegraf';
 import { CallbackQuery, InlineKeyboardButton, Update, User } from 'telegraf/typings/core/types/typegram';
 import { WizardContext } from 'telegraf/typings/scenes';
 import { BotService } from './bot.service';
@@ -16,6 +16,7 @@ export class UserActionsWizard {
   public constructor(
     private botService: BotService,
     private apiService: ApiService,
+    @InjectBot() private bot: Telegraf<Context>,
   ) {}
 
   @WizardStep(0)
@@ -142,6 +143,18 @@ export class UserActionsWizard {
     );
   }
 
+  @Action(/updateDate:.+/)
+  async updateUserDate(
+    @Ctx()
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
+  ) {
+    const user = await this.apiService.getUserData(ctx.wizard.state.vpnUsername);
+
+    if (!user) return ctx.sendMessage('❌ Ошибка');
+    await this.apiService.renewUser(user);
+    await ctx.reply(`✅ Вы успешно продлили подписку ${user.username} на 1 месяц.`);
+  }
+
   @Action('connectUser')
   async connectUser(
     @Ctx()
@@ -161,25 +174,13 @@ export class UserActionsWizard {
     });
   }
 
-  @Action(/updateDate:.+/)
-  async updateUserDate(
-    @Ctx()
-    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
-  ) {
-    const user = await this.apiService.getUserData(ctx.wizard.state.vpnUsername);
-
-    if (!user) return ctx.sendMessage('❌ Ошибка');
-    await this.apiService.renewUser(user);
-    await ctx.reply(`✅ Вы успешно продлили подписку ${user.username} на 1 месяц.`);
-  }
-
   @Action(/connectUser-final:.+/)
   async connectUserFinal(
     @Ctx()
     ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
   ) {
     const telegramId = ctx.callbackQuery.data.split(':')[1];
-    const tgUser = await ctx.getChatMember(Number(telegramId));
+    const tgUser = await this.bot.telegram.getChatMember(Number(telegramId), Number(telegramId));
 
     await this.apiService.connectTelegramId(ctx.wizard.state.vpnUsername, tgUser.user as Required<User>);
     await ctx.editMessageText('✅ Аккаунты успешно связаны');
