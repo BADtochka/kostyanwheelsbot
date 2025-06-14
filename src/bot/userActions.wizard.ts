@@ -1,26 +1,29 @@
 import { ApiService } from '@/api/api.service';
 import { backKeyboard, backToUserListKeyboard } from '@/contants/keyboards';
 import { AppWizard } from '@/types/SelectedIdWizard';
+import { convertBytes } from '@/utils/convertBytes';
 import { escapeMarkdown } from '@/utils/escapeMarkdown';
+import { randomUUID } from 'crypto';
+import { addDays, format, formatDistanceToNowStrict, fromUnixTime, getUnixTime } from 'date-fns';
 import { Action, Ctx, Wizard, WizardStep } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { CallbackQuery, InlineKeyboardButton, Update, User } from 'telegraf/typings/core/types/typegram';
 import { WizardContext } from 'telegraf/typings/scenes';
 import { BotService } from './bot.service';
 
-@Wizard('editUsers')
-export class EditUsersWizard {
+@Wizard('userActions')
+export class UserActionsWizard {
   public constructor(
     private botService: BotService,
     private apiService: ApiService,
   ) {}
 
-  @WizardStep(1)
+  @WizardStep(0)
   async getAllUsers(ctx: WizardContext) {
     const keyboards: InlineKeyboardButton[][] = [];
     const createUserKeyboard: InlineKeyboardButton[] = [
       {
-        text: 'Создать пользователя [TODO]',
+        text: 'Создать пользователя',
         callback_data: 'createUser',
       },
     ];
@@ -28,7 +31,16 @@ export class EditUsersWizard {
 
     users.map((user) => keyboards.push([{ text: user.username, callback_data: `editUser:${user.username}` }]));
     keyboards.push(createUserKeyboard, backKeyboard);
-    await ctx.editMessageText('Выберите пользователя для редактирования', {
+    if (ctx.callbackQuery) {
+      ctx.editMessageText('Выберите пользователя для редактирования', {
+        reply_markup: {
+          inline_keyboard: keyboards,
+        },
+      });
+      return;
+    }
+
+    ctx.sendMessage('Выберите пользователя для редактирования', {
       reply_markup: {
         inline_keyboard: keyboards,
       },
@@ -40,6 +52,42 @@ export class EditUsersWizard {
     this.botService.onStart(ctx);
   }
 
+  @Action('createUser')
+  async createUser(
+    @Ctx()
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
+  ) {
+    await ctx.editMessageText('Отправьте новый username пользователя.');
+    ctx.wizard.next();
+  }
+
+  @WizardStep(1)
+  async enterUsername(
+    @Ctx()
+    ctx: WizardContext,
+  ) {
+    if (!ctx.text) return ctx.sendMessage('❌ Не удалось создать пользователя.');
+
+    const user = await this.apiService.createUser({
+      username: ctx.text.replaceAll(' ', ''),
+      proxies: {
+        vless: {
+          id: randomUUID(),
+          flow: 'xtls-rprx-vision',
+        },
+      },
+      inbounds: {
+        vless: ['VLESS TCP REALITY'],
+      },
+      expire: getUnixTime(addDays(new Date(), 31)),
+    });
+    !user
+      ? await ctx.sendMessage('❌ Не удалось создать пользователя.')
+      : await ctx.sendMessage(`✅ Пользователь ${user?.username} успешно создан`);
+
+    await ctx.scene.reenter();
+  }
+
   @Action(/editUser:.+/)
   async editUser(
     @Ctx()
@@ -47,6 +95,8 @@ export class EditUsersWizard {
   ) {
     const keyboards: InlineKeyboardButton[][] = [];
     const vpnUsername = ctx.callbackQuery.data.split(':')[1];
+    const user = await this.apiService.getUserData(vpnUsername);
+    if (!user) return ctx.sendMessage('Произошла ошибка');
     ctx.wizard.state.vpnUsername = vpnUsername;
 
     const editActionsKeyboard: InlineKeyboardButton[][] = [
@@ -64,7 +114,7 @@ export class EditUsersWizard {
       ],
       [
         {
-          text: '🗓️ Продлить на 1 месяц [TODO]',
+          text: '🗓️ Продлить на 1 месяц',
           callback_data: `updateDate:${vpnUsername}`,
         },
       ],
@@ -77,11 +127,19 @@ export class EditUsersWizard {
     ];
 
     keyboards.push(...editActionsKeyboard, backToUserListKeyboard);
-    await ctx.editMessageText(`Выберите действие`, {
-      reply_markup: {
-        inline_keyboard: keyboards,
+    const parsedDate = fromUnixTime(user.expire!);
+    const dateToExpire = user.expire
+      ? `${format(parsedDate, 'dd.MM.yyyy')} (${formatDistanceToNowStrict(parsedDate)})`
+      : '∞';
+    await ctx.editMessageText(
+      `\`${user.username} / ${convertBytes(user.used_traffic)} / ${dateToExpire}\` \nВыберите действие `,
+      {
+        parse_mode: 'MarkdownV2',
+        reply_markup: {
+          inline_keyboard: keyboards,
+        },
       },
-    });
+    );
   }
 
   @Action('connectUser')
@@ -101,6 +159,18 @@ export class EditUsersWizard {
         inline_keyboard: keyboards,
       },
     });
+  }
+
+  @Action(/updateDate:.+/)
+  async updateUserDate(
+    @Ctx()
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
+  ) {
+    const user = await this.apiService.getUserData(ctx.wizard.state.vpnUsername);
+
+    if (!user) return ctx.sendMessage('❌ Ошибка');
+    await this.apiService.renewUser(user);
+    await ctx.reply(`✅ Вы успешно продлили подписку ${user.username} на 1 месяц.`);
   }
 
   @Action(/connectUser-final:.+/)

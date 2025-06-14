@@ -12,6 +12,7 @@ type AppEnv = {
   POSTGRES_DB: string;
 
   YOOMONEY: string;
+  BOOSTY: string;
   SBER: string;
   TBANK: string;
   USDT_TRC: string;

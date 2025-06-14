@@ -1,4 +1,4 @@
-const { TBANK, USDT_TRC, USDT_TON, TON, BITCOIN, NOTCOIN, YOOMONEY } = process.env;
+const { TBANK, USDT_TRC, USDT_TON, TON, BITCOIN, NOTCOIN, YOOMONEY, BOOSTY } = process.env;
 export const requisites = `Стоимость продления одного месяца 300₽
 
 *Банковские реквизиты* 
@@ -6,7 +6,7 @@ export const requisites = `Стоимость продления одного м
 \`${TBANK}\` 
 
 *Сервисы донатов (комиссия ~3%)* 
-[Boosty](https://boosty.to/kostyanwheels) (донат или подписка, при оформлении подписки отправляете скрин оплаты) 
+[Boosty](${BOOSTY}) (донат или подписка, при оформлении подписки отправляете скрин оплаты) 
 [Сбор в YooMoney](${YOOMONEY}) (оплата с кошелька или по данным карты)
 
 *Крипто*

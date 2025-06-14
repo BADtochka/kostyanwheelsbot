@@ -2,7 +2,7 @@ import { ApiService } from '@/api/api.service';
 import { backKeyboard, mainKeyboard } from '@/contants/keyboards';
 import { BOT_DENIED } from '@/contants/messages';
 import { requisites } from '@/contants/requisites';
-import { SendToOwner } from '@/types/sendToOwner';
+import { SendToOwner } from '@/types/SendToOwner';
 import { convertBytes } from '@/utils/convertBytes';
 import { escapeMarkdown } from '@/utils/escapeMarkdown';
 import { getInviteTag } from '@/utils/getInviteTag';
@@ -27,6 +27,7 @@ export class BotService {
     if (ctx.scene.current) ctx.scene.leave();
     const availableMenu: InlineKeyboardButton[][] = [...mainKeyboard];
     const inviteCode = getInviteTag(ctx.text);
+
     let user = await this.apiService.findUserByTelegramId(ctx.from?.id!);
 
     if (!user && !inviteCode) {
@@ -54,8 +55,8 @@ export class BotService {
     if (user.telegramUser?.id === Number(parseEnv('BOT_OWNER_ID'))) {
       availableMenu.push([
         {
-          text: '✍🏻 Редактировать аккаунт',
-          callback_data: 'editUsers',
+          text: '✍🏻 Действия с пользователями',
+          callback_data: 'userActions',
         },
       ]);
     }
@@ -154,9 +155,9 @@ ${
     ctx.scene.enter('receiptSend');
   }
 
-  @Action('editUsers')
-  async editUsers(@Ctx() ctx: SceneContext) {
-    ctx.scene.enter('editUsers');
+  @Action('userActions')
+  async userActions(@Ctx() ctx: SceneContext) {
+    ctx.scene.enter('userActions');
   }
 
   async sendToOwner({ type, content, senderName }: SendToOwner) {

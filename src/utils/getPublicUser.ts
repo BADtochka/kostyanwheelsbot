@@ -1,4 +1,4 @@
-import { PublicUser, User } from '@/types/user.api';
+import { PublicUser, User } from '@/types/User';
 
 export const getPublicUser = (user: Partial<User>): PublicUser => {
   return {

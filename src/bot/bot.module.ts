@@ -5,8 +5,8 @@ import { TelegrafModule } from 'nestjs-telegraf';
 import { session } from 'telegraf';
 import { BotHelper } from './bot.interval';
 import { BotService } from './bot.service';
-import { EditUsersWizard } from './editUsers.wizard';
 import { ReceiptWizard } from './receipt.wizard';
+import { UserActionsWizard } from './userActions.wizard';
 
 @Module({
   imports: [
@@ -17,6 +17,6 @@ import { ReceiptWizard } from './receipt.wizard';
     ApiModule,
   ],
   controllers: [],
-  providers: [BotService, BotHelper, ReceiptWizard, EditUsersWizard],
+  providers: [BotService, BotHelper, ReceiptWizard, UserActionsWizard],
 })
 export class BotModule {}

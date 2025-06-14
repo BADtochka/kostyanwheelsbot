@@ -1,4 +1,4 @@
-import { PublicUser } from '@/types/user.api';
+import { PublicUser } from '@/types/User';
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { TelegramUserEntity } from './telegramUser.entity';
 

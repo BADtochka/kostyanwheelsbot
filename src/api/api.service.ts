@@ -4,11 +4,13 @@ import { UserEntity } from '@/entities/user.entity';
 import {
   AdminTokenRequest,
   AdminTokenResponse,
+  CreateUserRequest,
+  CreateUserResponse,
   PublicUser,
   UpdateUserRequest,
   User,
   UsersResponse,
-} from '@/types/user.api';
+} from '@/types/User';
 import { generateCode } from '@/utils/generateCode';
 import { getPublicUser } from '@/utils/getPublicUser';
 import { parseEnv } from '@/utils/parceEnv';
@@ -18,7 +20,7 @@ import { tryCatch } from '@/utils/tryCatch';
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { addDays, fromUnixTime, getUnixTime } from 'date-fns';
+import { addDays, differenceInDays, fromUnixTime, getUnixTime } from 'date-fns';
 import { User as TelegramUser } from 'telegraf/types';
 import { Repository } from 'typeorm';
 import { ApiHelper } from './api.helper';
@@ -75,6 +77,30 @@ export class ApiService {
     this.logger.log(`Successfully ${data.token_type} auth`);
   }
 
+  async createUser(requestData: CreateUserRequest) {
+    const { data, error } = await tryCatch(
+      this.apiClient<CreateUserRequest, CreateUserResponse>({
+        method: 'POST',
+        url: '/user',
+        data: requestData,
+      }),
+    );
+
+    if (!error) return data.data;
+
+    this.logger.error(parseError(error));
+    return null;
+  }
+
+  // async getAllInbounds() {
+  //   const { data } = await tryCatch(
+  //     this.apiClient({
+  //       method: 'POST',
+  //       url: '/inbounds',
+  //     }),
+  //   );
+  // }
+
   async getAllVpnUsers() {
     const { data, error } = await tryCatch(
       this.apiClient<undefined, UsersResponse>({
@@ -82,7 +108,7 @@ export class ApiService {
         url: `/users`,
       }),
     );
-    if (!error) return data.data.users.map(getPublicUser);
+    if (!error) return data.data.users.filter((user) => user.status === 'active').map(getPublicUser);
 
     this.logger.error(parseError(error));
     return [];
@@ -134,6 +160,7 @@ export class ApiService {
   }
 
   async updateUser(username: string, partialUser: Partial<UserEntity>) {
+    await this.updateUsersTable();
     const user = await this.userRepository.findOne({ where: { username }, relations: ['telegramUser'] });
     if (!user) {
       this.logger.error(`Failed to update user: ${username} (no user finded)`);
@@ -149,7 +176,7 @@ export class ApiService {
     );
 
     if (error) {
-      this.logger.error(`Failed to update user: ${username}`, error);
+      this.logger.error(`Failed to update user: ${username} (second try)`, error);
       return null;
     }
 
@@ -159,7 +186,8 @@ export class ApiService {
   }
 
   async renewUser(user: PublicUser) {
-    const oldDate = user.expire ? fromUnixTime(user.expire) : new Date();
+    const expiresLessThenNow = user.expire && differenceInDays(fromUnixTime(user.expire), new Date()) > 0;
+    const oldDate = user.expire && expiresLessThenNow ? fromUnixTime(user.expire) : new Date();
     const newDate = addDays(oldDate, 31);
     return await this.updateUser(user.username, { expire: getUnixTime(newDate) });
   }

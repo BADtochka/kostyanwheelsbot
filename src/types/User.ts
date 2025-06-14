@@ -69,3 +69,7 @@ export type DisableUserRequest = {
 export type DisableUserResponse = User;
 
 export type UpdateUserRequest = Partial<PublicUser>;
+
+export type CreateUserRequest = Required<Pick<User, 'username'>> & Partial<User>;
+
+export type CreateUserResponse = User;

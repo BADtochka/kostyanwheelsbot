@@ -31,6 +31,6 @@ export const backKeyboard: InlineKeyboardButton[] = [
 export const backToUserListKeyboard: InlineKeyboardButton[] = [
   {
     text: 'Назад',
-    callback_data: 'editUsers',
+    callback_data: 'userActions',
   },
 ];
