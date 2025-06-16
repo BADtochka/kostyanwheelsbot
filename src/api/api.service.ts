@@ -108,7 +108,7 @@ export class ApiService {
         url: `/users`,
       }),
     );
-    if (!error) return data.data.users.filter((user) => user.status === 'active').map(getPublicUser);
+    if (!error) return data.data.users.map(getPublicUser);
 
     this.logger.error(parseError(error));
     return [];
