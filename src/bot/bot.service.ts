@@ -1,4 +1,5 @@
 import { ApiService } from '@/api/api.service';
+import { isDev } from '@/contants/isDev';
 import { backKeyboard, mainKeyboard } from '@/contants/keyboards';
 import { BOT_DENIED } from '@/contants/messages';
 import { requisites } from '@/contants/requisites';
@@ -18,7 +19,9 @@ export class BotService {
   constructor(
     private apiService: ApiService,
     @InjectBot() private bot: Telegraf<Context>,
-  ) {}
+  ) {
+    bot.telegram.setMyCommands([{ command: '/menu', description: 'Главное меню' }]);
+  }
 
   @Start()
   @Command('menu')
@@ -143,7 +146,7 @@ ${
       return;
     }
     const expiredDays = differenceInDays(fromUnixTime(user.expire), new Date());
-    if (expiredDays > 3) {
+    if (expiredDays > 3 && !isDev) {
       ctx.editMessageText('⚠️ Чтобы продлить подписку она должна заканчиваться не более, чем через 3 дня', {
         reply_markup: {
           inline_keyboard: [backKeyboard],
@@ -166,12 +169,15 @@ ${
         this.bot.telegram.sendDocument(parseEnv('BOT_OWNER_ID'), content, {
           caption: `Вложение от #${senderName}`,
         });
+        break;
       case 'photo':
         this.bot.telegram.sendPhoto(parseEnv('BOT_OWNER_ID'), content, {
           caption: `Вложение от #${senderName}`,
         });
+        break;
       case 'text':
         this.bot.telegram.sendMessage(parseEnv('BOT_OWNER_ID'), content);
+        break;
     }
   }
 }

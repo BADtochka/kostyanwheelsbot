@@ -64,7 +64,6 @@ export class ReceiptWizard {
       ctx.reply(BOT_DENIED);
       return;
     }
-
     try {
       const photo = Input.fromFileId(ctx.message.photo.pop()?.file_id!)!;
       await this.botService.sendToOwner({ type: 'photo', content: photo, senderName: user.username });
