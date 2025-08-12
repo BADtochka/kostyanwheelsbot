@@ -4,7 +4,7 @@ import { AppWizard } from '@/types/SelectedIdWizard';
 import { convertBytes } from '@/utils/convertBytes';
 import { escapeMarkdown } from '@/utils/escapeMarkdown';
 import { randomUUID } from 'crypto';
-import { addDays, format, formatDistanceToNowStrict, fromUnixTime, getUnixTime } from 'date-fns';
+import { addDays, format, formatDistanceToNowStrict, formatISO } from 'date-fns';
 import { Action, Ctx, InjectBot, Wizard, WizardStep } from 'nestjs-telegraf';
 import { Context, Telegraf } from 'telegraf';
 import { CallbackQuery, InlineKeyboardButton, Update, User } from 'telegraf/typings/core/types/typegram';
@@ -80,7 +80,7 @@ export class UserActionsWizard {
       inbounds: {
         vless: ['VLESS TCP REALITY'],
       },
-      expire: getUnixTime(addDays(new Date(), 31)),
+      expire: formatISO(addDays(new Date(), 31)),
     });
     !user
       ? await ctx.sendMessage('❌ Не удалось создать пользователя.')
@@ -128,7 +128,7 @@ export class UserActionsWizard {
     ];
 
     keyboards.push(...editActionsKeyboard, backToUserListKeyboard);
-    const parsedDate = fromUnixTime(user.expire!);
+    const parsedDate = formatISO(user.expire!);
     const dateToExpire = user.expire
       ? `${format(parsedDate, 'dd.MM.yyyy')} (${formatDistanceToNowStrict(parsedDate)})`
       : '∞';

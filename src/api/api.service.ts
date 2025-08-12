@@ -20,7 +20,7 @@ import { tryCatch } from '@/utils/tryCatch';
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { addDays, differenceInDays, fromUnixTime, getUnixTime } from 'date-fns';
+import { addDays, differenceInDays, formatISO } from 'date-fns';
 import { User as TelegramUser } from 'telegraf/types';
 import { Repository } from 'typeorm';
 import { ApiHelper } from './api.helper';
@@ -31,7 +31,7 @@ export class ApiService {
     baseURL: `${parseEnv('API_HOST')}/api`,
   };
   private axiosInstance: AxiosInstance = axios.create(this._axioxConfig);
-  private apiClient = <Request, Response>(config: Omit<AxiosRequestConfig<Request>, 'baseURL'>) => {
+  private apiClient = <Request, Response>(config: AxiosRequestConfig<Request>) => {
     return this.axiosInstance<Response, AxiosResponse<Response, Request>, Request>(config);
   };
   private readonly logger = new Logger(ApiService.name);
@@ -105,7 +105,7 @@ export class ApiService {
     const { data, error } = await tryCatch(
       this.apiClient<undefined, UsersResponse>({
         method: 'GET',
-        url: `/users`,
+        url: `/users?load_sub=true`,
       }),
     );
     if (!error) return data.data.users.map(getPublicUser);
@@ -186,10 +186,10 @@ export class ApiService {
   }
 
   async renewUser(user: PublicUser) {
-    const expiresLessThenNow = user.expire && differenceInDays(fromUnixTime(user.expire), new Date()) > 0;
-    const oldDate = user.expire && expiresLessThenNow ? fromUnixTime(user.expire) : new Date();
+    const expiresLessThenNow = user.expire && differenceInDays(formatISO(user.expire), new Date()) > 0;
+    const oldDate = user.expire && expiresLessThenNow ? formatISO(user.expire) : new Date();
     const newDate = addDays(oldDate, 31);
-    return await this.updateUser(user.username, { expire: getUnixTime(newDate) });
+    return await this.updateUser(user.username, { expire: formatISO(newDate) });
   }
 
   async getAllTelegramUsers() {
@@ -232,5 +232,19 @@ export class ApiService {
       return { code: null, updatedUser: null };
     }
     return { code, updatedUser };
+  }
+
+  async getUserLinks(subToken: string) {
+    const { data, error } = await tryCatch(
+      this.apiClient<undefined, string>({
+        baseURL: parseEnv('API_HOST'),
+        method: 'GET',
+        url: `${subToken}/links`,
+      }),
+    );
+
+    if (error) return null;
+
+    return data.data;
   }
 }

@@ -27,7 +27,7 @@ export interface ExcludedInbounds {}
 
 export interface User {
   proxies: Proxies;
-  expire: number | null;
+  expire: string | 0;
   data_limit: number;
   data_limit_reset_strategy: string;
   inbounds: Inbounds;

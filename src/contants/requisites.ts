@@ -1,22 +1,13 @@
-const { TBANK, USDT_TRC, USDT_TON, TON, BITCOIN, NOTCOIN, YOOMONEY, BOOSTY } = process.env;
+const { TBANK, YOOMONEY, BOOSTY, CLOUDTIPS } = process.env;
 export const requisites = `Стоимость продления одного месяца 300₽
 
 *Банковские реквизиты* 
 ТБанк: 
 \`${TBANK}\` 
 
-*Сервисы донатов (комиссия ~3%)* 
-[Boosty](${BOOSTY}) (донат или подписка, при оформлении подписки отправляете скрин оплаты) 
+*Сервисы донатов (комиссия ~10%)* 
+[Boosty](${BOOSTY}) (донат или подписка, при оформлении подписки отправляете скрин оплаты) (комиссия 30₽)
+[CloudTips](${CLOUDTIPS}) (оплата с карты или ТБанка)
 [Сбор в YooMoney](${YOOMONEY}) (оплата с кошелька или по данным карты)
 
-*Крипто*
-USDT(TRC20): 
-\`${USDT_TRC}\`
-USDT(TON): 
-\`${USDT_TON}\`
-TON: 
-\`${TON}\`
-Bitcoin: 
-\`${BITCOIN}\`
-Notcoin: 
-\`${NOTCOIN}\``;
+*Крипто временно убрано из списка из-за проблем с адресами кошельков, если нужно оплатить криптой, напишите мне.*`;

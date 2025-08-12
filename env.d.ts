@@ -13,6 +13,7 @@ type AppEnv = {
 
   YOOMONEY: string;
   BOOSTY: string;
+  CLOUDTIPS: string;
   SBER: string;
   TBANK: string;
   USDT_TRC: string;

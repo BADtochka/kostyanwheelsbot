@@ -24,5 +24,5 @@ const SPECIAL_CHARS = [
 
 export const escapeMarkdown = (text?: string) => {
   SPECIAL_CHARS.forEach((char) => (text = text?.replaceAll(char, `\\${char}`)));
-  return text;
+  return text || '';
 };

@@ -23,7 +23,7 @@ export const mainKeyboard: InlineKeyboardButton[][] = [
 
 export const backKeyboard: InlineKeyboardButton[] = [
   {
-    text: 'Назад',
+    text: '🏠 Главная',
     callback_data: 'mainMenu',
   },
 ];

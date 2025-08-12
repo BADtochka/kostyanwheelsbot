@@ -7,8 +7,8 @@ export class UserEntity implements PublicUser {
   @PrimaryColumn()
   username: string;
 
-  @Column('bigint', { nullable: true })
-  expire: number | null;
+  @Column('varchar', { nullable: true, default: () => 'CURRENT_TIMESTAMP' })
+  expire: string | 0;
 
   @Column('varchar')
   status: PublicUser['status'];

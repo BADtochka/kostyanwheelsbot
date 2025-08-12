@@ -8,10 +8,11 @@ import { convertBytes } from '@/utils/convertBytes';
 import { escapeMarkdown } from '@/utils/escapeMarkdown';
 import { getInviteTag } from '@/utils/getInviteTag';
 import { parseEnv } from '@/utils/parceEnv';
-import { differenceInDays, format, formatDistanceToNowStrict, fromUnixTime } from 'date-fns';
+import { parseUserLinks } from '@/utils/parseUserLinks';
+import { differenceInDays, format, formatDistanceToNowStrict, formatISO } from 'date-fns';
 import { Action, Command, Ctx, InjectBot, Start, Update } from 'nestjs-telegraf';
 import { Context, Scenes, Telegraf } from 'telegraf';
-import { InlineKeyboardButton } from 'telegraf/typings/core/types/typegram';
+import { CallbackQuery, InlineKeyboardButton, Update as TelegrafUpdate } from 'telegraf/typings/core/types/typegram';
 import { SceneContext } from 'telegraf/typings/scenes';
 
 @Update()
@@ -84,32 +85,49 @@ export class BotService {
       return;
     }
 
-    const parsedDate = fromUnixTime(user.expire!);
+    const parsedDate = formatISO(user.expire!);
     const dateToExpire = user.expire
       ? `${format(parsedDate, 'dd.MM.yyyy')} (${formatDistanceToNowStrict(parsedDate)})`
       : '∞';
 
-    const subPath = new URL(user.subscription_url).pathname;
+    const profileArray = ['\`💡 Статистика обновляется в 0:00 по МСК\`'];
 
-    const profile = `\`💡 Статистика обновляется в 0:00 по МСК\`
+    profileArray.push(escapeMarkdown(`😎 Пользователь: ${user.username}`));
+    profileArray.push(`🧑‍💻 Использовано трафика: ${convertBytes(user.used_traffic)}`);
 
-😎 Пользователь: ${escapeMarkdown(user.username)}
+    if (user.status !== 'active') {
+      await ctx.editMessageText(profileArray.join('\n\n'), {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [backKeyboard],
+        },
+      });
+      return;
+    }
+    profileArray.push(`📅 Действует до: ${dateToExpire}`);
 
-🧑‍💻 Использовано трафика: ${convertBytes(user.used_traffic)}
+    profileArray.push(`🔗 Подписка: \`\`\`${parseEnv('API_HOST')}${user.subscription_url}\`\`\``);
 
-📍 Статус: ${user.status}
+    const linksKeyboard: InlineKeyboardButton[] = [
+      { text: '🔗 Ссылки на профили', callback_data: `servers:${user.subscription_url}` },
+    ];
 
-${
-  user.status === 'active' &&
-  `📅 Действует до: ${dateToExpire}
+    await ctx.editMessageText(profileArray.join('\n\n'), {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [linksKeyboard, backKeyboard],
+      },
+    });
+  }
 
-🔗 Ссылка на подписку \`\`\`${user.subscription_url}\`\`\`
+  @Action(/servers:.+/)
+  async servers(@Ctx() ctx: Context<TelegrafUpdate.CallbackQueryUpdate<CallbackQuery.DataQuery>>) {
+    const subLink = ctx.callbackQuery?.data?.split(':')?.[1];
+    if (!subLink) return;
+    const userLinks = await this.apiService.getUserLinks(subLink);
+    const parsedUserLinks = parseUserLinks(userLinks);
 
-🔗 Зеркало \`\`\`${parseEnv('API_HOST')}${subPath}\`\`\`
-`
-}`.replace(/true|false/, '');
-
-    await ctx.editMessageText(profile, {
+    await ctx.editMessageText(`🔗 Профили VLESS: \n${parsedUserLinks.join('').replaceAll('>', '\n')}`, {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [backKeyboard],
@@ -145,7 +163,7 @@ ${
       });
       return;
     }
-    const expiredDays = differenceInDays(fromUnixTime(user.expire), new Date());
+    const expiredDays = differenceInDays(formatISO(user.expire), new Date());
     if (expiredDays > 3 && !isDev) {
       ctx.editMessageText('⚠️ Чтобы продлить подписку она должна заканчиваться не более, чем через 3 дня', {
         reply_markup: {
