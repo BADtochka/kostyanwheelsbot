@@ -1,19 +1,35 @@
-# 1. Базовый образ с Bun
-FROM oven/bun:1 as base
+# 1. Этап сборки
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# 2. Установка зависимостей
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+# Устанавливаем pnpm
+RUN npm install -g pnpm
 
-# 3. Копируем весь проект
+# Копируем package.json и lockfile для кэширования зависимостей
+COPY package.json pnpm-lock.yaml ./
+
+# Устанавливаем все зависимости (включая dev)
+RUN pnpm install --frozen-lockfile
+
+# Копируем исходники
 COPY . .
 
-# 4. Сборка NestJS (если используешь ts->js билд)
-# Если хочешь запускать прямо на TS — можно пропустить этот шаг
-RUN bun run build
+# Сборка проекта
+RUN pnpm run build
 
-# 5. Запуск приложения
-# Если у тебя билд в dist — указывай dist/main.js
-# Если без билда — можно bun run start:dev
-CMD ["bun", "run", "start:prod"]
+# 2. Финальный образ
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+# Устанавливаем pnpm
+RUN npm install -g pnpm
+
+# Копируем только prod-зависимости
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --prod --frozen-lockfile
+
+# Копируем собранный код из builder
+COPY --from=builder /app/dist ./dist
+
+# Запуск приложения
+CMD ["node", "dist/main.js"]
