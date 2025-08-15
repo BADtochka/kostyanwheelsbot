@@ -1,21 +1,19 @@
-# Use Bun base image
-FROM oven/bun:latest AS base
-
+# 1. Базовый образ с Bun
+FROM oven/bun:1 as base
 WORKDIR /app
 
-# Copy only dependency files first for better caching
-COPY bun.lockb package.json ./
-
-FROM base AS deps
-# Install dependencies with Bun
+# 2. Установка зависимостей
+COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
-FROM base AS build
-COPY --from=deps /app/node_modules ./node_modules
+# 3. Копируем весь проект
 COPY . .
+
+# 4. Сборка NestJS (если используешь ts->js билд)
+# Если хочешь запускать прямо на TS — можно пропустить этот шаг
 RUN bun run build
 
-FROM base AS final
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-CMD ["bun", "dist/main.js"]
+# 5. Запуск приложения
+# Если у тебя билд в dist — указывай dist/main.js
+# Если без билда — можно bun run start:dev
+CMD ["bun", "run", "start:prod"]
