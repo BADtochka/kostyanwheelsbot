@@ -11,6 +11,8 @@ type AppEnv = {
   POSTGRES_PASSWORD: string;
   POSTGRES_DB: string;
 
+  ENABLE_MONITORING: boolean;
+
   YOOMONEY: string;
   BOOSTY: string;
   CLOUDTIPS: string;

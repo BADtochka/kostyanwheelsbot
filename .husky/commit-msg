@@ -1,1 +1,1 @@
-pnpm dlx commitlint --edit \
+bunx commitlint --edit ${1}
