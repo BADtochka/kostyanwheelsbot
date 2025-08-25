@@ -6,10 +6,10 @@ WORKDIR /app
 RUN npm install -g pnpm
 
 # Копируем package.json и lockfile для кэширования зависимостей
-COPY package.json pnpm-lock.yaml ./
+COPY package.json ./
 
 # Устанавливаем все зависимости (включая dev)
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 # Копируем исходники
 COPY . .
@@ -25,8 +25,8 @@ WORKDIR /app
 RUN npm install -g pnpm
 
 # Копируем только prod-зависимости
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --prod --frozen-lockfile
+COPY package.json ./
+RUN pnpm install --prod
 
 # Копируем собранный код из builder
 COPY --from=builder /app/dist ./dist
