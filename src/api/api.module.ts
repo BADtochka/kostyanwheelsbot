@@ -1,4 +1,5 @@
-import { BotHelper } from '@/bot/bot.interval';
+import { BotInterval } from '@/bot/bot.interval';
+import { BotService } from '@/bot/bot.service';
 import { TelegramUserEntity } from '@/entities/telegramUser.entity';
 import { UserEntity } from '@/entities/user.entity';
 import { Module } from '@nestjs/common';
@@ -8,7 +9,7 @@ import { ApiService } from './api.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([UserEntity, TelegramUserEntity])],
-  providers: [ApiService, ApiHelper, BotHelper],
+  providers: [ApiService, ApiHelper, BotInterval, BotService],
   exports: [ApiService],
 })
 export class ApiModule {}

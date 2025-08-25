@@ -3,8 +3,9 @@ import { parseEnv } from '@/utils/parceEnv';
 import { Module } from '@nestjs/common';
 import { TelegrafModule } from 'nestjs-telegraf';
 import { session } from 'telegraf';
-import { BotHelper } from './bot.interval';
+import { BotInterval } from './bot.interval';
 import { BotService } from './bot.service';
+import { MessageToAllWizard } from './messageToAll.wizard';
 import { ReceiptWizard } from './receipt.wizard';
 import { UserActionsWizard } from './userActions.wizard';
 
@@ -17,6 +18,6 @@ import { UserActionsWizard } from './userActions.wizard';
     ApiModule,
   ],
   controllers: [],
-  providers: [BotService, BotHelper, ReceiptWizard, UserActionsWizard],
+  providers: [BotService, BotInterval, ReceiptWizard, UserActionsWizard, MessageToAllWizard],
 })
 export class BotModule {}

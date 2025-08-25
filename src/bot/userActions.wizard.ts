@@ -1,14 +1,15 @@
 import { ApiService } from '@/api/api.service';
 import { backKeyboard, backToUserListKeyboard } from '@/contants/keyboards';
 import { AppWizard } from '@/types/SelectedIdWizard';
+import { SharedUser } from '@/types/SharedUser';
 import { convertBytes } from '@/utils/convertBytes';
 import { escapeMarkdown } from '@/utils/escapeMarkdown';
 import { randomUUID } from 'crypto';
 import { addDays, format, formatDistanceToNowStrict, formatISO } from 'date-fns';
-import { Action, Ctx, InjectBot, Wizard, WizardStep } from 'nestjs-telegraf';
-import { Context, Telegraf } from 'telegraf';
-import { CallbackQuery, InlineKeyboardButton, Update, User } from 'telegraf/typings/core/types/typegram';
-import { WizardContext } from 'telegraf/typings/scenes';
+import { Action, Ctx, InjectBot, On, Wizard, WizardStep } from 'nestjs-telegraf';
+import { Context, Markup, Telegraf } from 'telegraf';
+import { CallbackQuery, Chat, InlineKeyboardButton, Update } from 'telegraf/typings/core/types/typegram';
+import { SceneContext, WizardContext } from 'telegraf/typings/scenes';
 import { BotService } from './bot.service';
 
 @Wizard('userActions')
@@ -56,7 +57,9 @@ export class UserActionsWizard {
   @Action('createUser')
   async createUser(
     @Ctx()
-    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> &
+      WizardContext &
+      AppWizard<{ vpnUsername: string }>,
   ) {
     await ctx.editMessageText('Отправьте новый username пользователя.');
     ctx.wizard.next();
@@ -92,7 +95,9 @@ export class UserActionsWizard {
   @Action(/editUser:.+/)
   async editUser(
     @Ctx()
-    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> &
+      WizardContext &
+      AppWizard<{ vpnUsername: string }>,
   ) {
     const keyboards: InlineKeyboardButton[][] = [];
     const vpnUsername = ctx.callbackQuery.data.split(':')[1];
@@ -130,7 +135,7 @@ export class UserActionsWizard {
     keyboards.push(...editActionsKeyboard, backToUserListKeyboard);
     const parsedDate = formatISO(user.expire!);
     const dateToExpire = user.expire
-      ? `${format(parsedDate, 'dd.MM.yyyy')} (${formatDistanceToNowStrict(parsedDate)})`
+      ? `${format(parsedDate, 'dd.MM.yyyy')} (${formatDistanceToNowStrict(parsedDate, { addSuffix: true })})`
       : '∞';
     await ctx.editMessageText(
       `\`${user.username} / ${convertBytes(user.used_traffic)} / ${dateToExpire}\` \nВыберите действие `,
@@ -146,7 +151,9 @@ export class UserActionsWizard {
   @Action(/updateDate:.+/)
   async updateUserDate(
     @Ctx()
-    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> &
+      WizardContext &
+      AppWizard<{ vpnUsername: string }>,
   ) {
     const user = await this.apiService.getUserData(ctx.wizard.state.vpnUsername);
 
@@ -164,33 +171,84 @@ export class UserActionsWizard {
     const tgUsers = await this.apiService.getAllTelegramUsers();
 
     tgUsers.map((tgUser) =>
-      keyboards.push([{ text: tgUser.username, callback_data: `connectUser-final:${tgUser.id}` }]),
+      keyboards.push([
+        {
+          text: `${tgUser.first_name} ${tgUser.username ? `@${tgUser.username}` : ''}`,
+          callback_data: `connectUser-final:${tgUser.id}`,
+        },
+      ]),
     );
-    keyboards.push(backToUserListKeyboard);
-    await ctx.editMessageText(`Выберите telegram аккаунт`, {
+
+    keyboards.push([
+      {
+        text: 'Выбрать самостоятельно',
+        callback_data: 'connectUser-final-manual',
+      },
+    ]);
+    await ctx.editMessageText('Выберите telegram аккаунт из БД', {
       reply_markup: {
         inline_keyboard: keyboards,
       },
     });
   }
 
+  @Action('connectUser-final-manual')
+  async connectUserFinalManual(@Ctx() ctx: AppWizard<{ vpnUsername: string }> & SceneContext) {
+    ctx.reply(
+      'Выберите telegram аккаунт',
+      Markup.keyboard([
+        Markup.button.userRequest('Выбрать аккаунт', ctx.from?.id as number),
+        Markup.button.callback('Назад', 'userActions'),
+      ]).oneTime(),
+    );
+  }
+
+  @On('users_shared')
+  async usersShared(@Ctx() ctx: AppWizard<{ vpnUsername: string }> & SceneContext) {
+    if (!ctx.message || !('user_shared' in ctx.message)) return;
+    const userId = (ctx.message.user_shared as SharedUser).user_id;
+    const tgUser = await this.apiService.findUserByTelegramId(userId);
+    if (!tgUser) {
+      ctx.reply('❌ Пользователь не найден в базе данных, сгенерируйте приглашение');
+      return;
+    }
+    const user = (await ctx.telegram.getChat(userId)) as Chat.PrivateChat;
+    await this.apiService.connectTelegramId(ctx.wizard.state.vpnUsername, user);
+
+    await ctx.reply(`✅ ${user.first_name} успешно привязан к аккаунту ${ctx.wizard.state.vpnUsername}`, {
+      reply_markup: {
+        remove_keyboard: true,
+        inline_keyboard: [backKeyboard],
+      },
+    });
+    await ctx.scene.leave();
+  }
+
   @Action(/connectUser-final:.+/)
   async connectUserFinal(
     @Ctx()
-    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> &
+      WizardContext &
+      AppWizard<{ vpnUsername: string }>,
   ) {
     const telegramId = ctx.callbackQuery.data.split(':')[1];
-    const tgUser = await this.bot.telegram.getChatMember(Number(telegramId), Number(telegramId));
+    const tgUser = (await this.bot.telegram.getChat(Number(telegramId))) as Chat.PrivateChat;
 
-    await this.apiService.connectTelegramId(ctx.wizard.state.vpnUsername, tgUser.user as Required<User>);
-    await ctx.editMessageText('✅ Аккаунты успешно связаны');
+    await this.apiService.connectTelegramId(ctx.wizard.state.vpnUsername, tgUser);
+    await ctx.editMessageText('✅ Аккаунты успешно связаны', {
+      reply_markup: {
+        inline_keyboard: [backKeyboard],
+      },
+    });
     await ctx.scene.leave();
   }
 
   @Action(/disableUser:.+/)
   async deleteVpnUser(
     @Ctx()
-    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> &
+      WizardContext &
+      AppWizard<{ vpnUsername: string }>,
   ) {
     const user = await this.apiService.getUserData(ctx.wizard.state.vpnUsername);
 
@@ -207,7 +265,9 @@ export class UserActionsWizard {
   @Action(/inviteCode:.+/)
   async inviteCodeGenerate(
     @Ctx()
-    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> & WizardContext & AppWizard,
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery.DataQuery>> &
+      WizardContext &
+      AppWizard<{ vpnUsername: string }>,
   ) {
     const user = await this.apiService.getUserData(ctx.wizard.state.vpnUsername);
     const { code } = await this.apiService.addInviteCode(user!);

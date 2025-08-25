@@ -4,17 +4,22 @@ import { tryCatch } from '@/utils/tryCatch';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, Interval } from '@nestjs/schedule';
 import axios from 'axios';
+import { BotService } from './bot.service';
 
 @Injectable()
-export class BotHelper {
+export class BotInterval {
   isCrashed: boolean = false;
-  public constructor(private apiService: ApiService) {}
-  private logger = new Logger(BotHelper.name);
+  public constructor(
+    private apiService: ApiService,
+    private botService: BotService,
+  ) {}
+  private logger = new Logger(BotInterval.name);
 
   @Cron('0 0 * * *')
-  async reinitApi() {
+  async updateApi() {
     const { error } = await tryCatch(this.apiService.init());
     if (error) return (this.isCrashed = true);
+    await this.botService.checkUsersExpiration();
   }
 
   @Interval(5000)

@@ -1,13 +1,13 @@
-import { User } from 'telegraf/typings/core/types/typegram';
+import { Chat } from 'telegraf/typings/core/types/typegram';
 import { Column, Entity, PrimaryColumn } from 'typeorm';
 
 @Entity()
-export class TelegramUserEntity implements Pick<User, 'id' | 'username' | 'first_name' | 'last_name'> {
+export class TelegramUserEntity implements Pick<Chat.PrivateChat, 'id' | 'username' | 'first_name' | 'last_name'> {
   @PrimaryColumn()
   id: number;
 
-  @Column()
-  username: string;
+  @Column({ nullable: true })
+  username?: string;
 
   @Column()
   first_name: string;

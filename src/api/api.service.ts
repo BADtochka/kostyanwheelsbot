@@ -1,4 +1,4 @@
-import { BotHelper } from '@/bot/bot.interval';
+import { BotInterval } from '@/bot/bot.interval';
 import { TelegramUserEntity } from '@/entities/telegramUser.entity';
 import { UserEntity } from '@/entities/user.entity';
 import {
@@ -21,7 +21,7 @@ import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { addDays, differenceInDays, formatISO } from 'date-fns';
-import { User as TelegramUser } from 'telegraf/types';
+import { Chat } from 'telegraf/types';
 import { Repository } from 'typeorm';
 import { ApiHelper } from './api.helper';
 
@@ -41,8 +41,8 @@ export class ApiService {
     private userRepository: Repository<UserEntity>,
     @InjectRepository(TelegramUserEntity)
     private tgUserRepository: Repository<TelegramUserEntity>,
-    @Inject(forwardRef(() => BotHelper))
-    private botHelper: BotHelper,
+    @Inject(forwardRef(() => BotInterval))
+    private botHelper: BotInterval,
     private apiHelper: ApiHelper,
   ) {
     this.init();
@@ -53,7 +53,7 @@ export class ApiService {
     const { error } = await tryCatch(this.authLogin());
     if (!error) {
       await this.updateUsersTable();
-      this.apiHelper.initOwnerAccount();
+      await this.apiHelper.initOwnerAccount();
       return;
     }
 
@@ -135,6 +135,12 @@ export class ApiService {
     return false;
   }
 
+  async getAllTableUsers() {
+    await this.updateUsersTable();
+    const [users, count] = await this.userRepository.findAndCount({ relations: ['telegramUser'] });
+    return { users, count };
+  }
+
   async getUserData(username: string) {
     const { data, error } = await tryCatch(
       this.apiClient<undefined, User>({
@@ -148,7 +154,7 @@ export class ApiService {
     return null;
   }
 
-  async connectByInviteCode(code: string, telegramUser: TelegramUser) {
+  async connectByInviteCode(code: string, telegramUser: Chat.PrivateChat) {
     this.logger.log(`${telegramUser.username} connecting by invite code: ${code}`);
 
     const user = await this.userRepository.findOneBy({ inviteCode: code });
@@ -189,7 +195,7 @@ export class ApiService {
     const expiresLessThenNow = user.expire && differenceInDays(formatISO(user.expire), new Date()) > 0;
     const oldDate = user.expire && expiresLessThenNow ? formatISO(user.expire) : new Date();
     const newDate = addDays(oldDate, 31);
-    return await this.updateUser(user.username, { expire: formatISO(newDate) });
+    return await this.updateUser(user.username, { expire: formatISO(newDate), status: 'active' });
   }
 
   async getAllTelegramUsers() {
@@ -205,21 +211,38 @@ export class ApiService {
     return user;
   }
 
-  async connectTelegramId(username: string, telegramUser: TelegramUser) {
-    await this.updateUsersTable();
+  async connectTelegramId(username: string, telegramUser: Chat.PrivateChat) {
+    const existTableUser = await this.userRepository.find({
+      where: { telegramUser: { id: telegramUser.id } },
+      relations: ['telegramUser'],
+    });
+
+    existTableUser.forEach(async (user) => {
+      if (user.username === username) return;
+      user.telegramUser = null;
+      await this.userRepository.save(user);
+    });
     const updatedUser = await this.updateUser(username, {
-      telegramUser: telegramUser as Required<TelegramUser>,
+      telegramUser: telegramUser,
       status: 'active',
     });
     return updatedUser;
   }
 
-  async addTelegramUser(user: TelegramUser) {
+  async addTelegramUser(user: Chat.PrivateChat) {
     return await this.tgUserRepository.save({ ...user });
   }
 
-  async disableUser(user: PublicUser) {
-    const updatedUser = await this.updateUser(user.username, { status: 'disabled', telegramUser: null });
+  async disableUser(user: PublicUser, removeTelegram = false) {
+    this.logger.warn(`Пользователь отключен: ${user.username}`);
+    const userEntity = await this.userRepository.findOne({
+      where: { username: user.username },
+      relations: ['telegramUser'],
+    });
+    const updatedUser = await this.updateUser(user.username, {
+      status: 'disabled',
+      telegramUser: removeTelegram ? null : userEntity?.telegramUser,
+    });
     if (!updatedUser) return this.logger.error(`failed to disable user: ${user.username}`);
     return updatedUser;
   }

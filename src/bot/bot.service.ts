@@ -9,14 +9,17 @@ import { escapeMarkdown } from '@/utils/escapeMarkdown';
 import { getInviteTag } from '@/utils/getInviteTag';
 import { parseEnv } from '@/utils/parceEnv';
 import { parseUserLinks } from '@/utils/parseUserLinks';
-import { differenceInDays, format, formatDistanceToNowStrict, formatISO } from 'date-fns';
+import { Logger } from '@nestjs/common';
+import { differenceInDays, differenceInHours, format, formatDistanceToNowStrict, formatISO } from 'date-fns';
 import { Action, Command, Ctx, InjectBot, Start, Update } from 'nestjs-telegraf';
-import { Context, Scenes, Telegraf } from 'telegraf';
+import { Context, Markup, Scenes, Telegraf } from 'telegraf';
 import { CallbackQuery, InlineKeyboardButton, Update as TelegrafUpdate } from 'telegraf/typings/core/types/typegram';
 import { SceneContext } from 'telegraf/typings/scenes';
 
 @Update()
 export class BotService {
+  private logger = new Logger(BotService.name);
+
   constructor(
     private apiService: ApiService,
     @InjectBot() private bot: Telegraf<Context>,
@@ -34,14 +37,14 @@ export class BotService {
 
     let user = await this.apiService.findUserByTelegramId(ctx.from?.id!);
 
-    if (!user && !inviteCode) {
-      await this.apiService.addTelegramUser(ctx.from!);
+    if (!user && !inviteCode && ctx.chat?.type === 'private') {
+      await this.apiService.addTelegramUser(ctx.chat!);
       ctx.reply(BOT_DENIED);
       return;
     }
 
-    if (!user && inviteCode) {
-      const tgUser = await this.apiService.addTelegramUser(ctx.from!);
+    if (!user && inviteCode && ctx.chat?.type === 'private') {
+      const tgUser = await this.apiService.addTelegramUser(ctx.chat!);
       const newUser = await this.apiService.connectByInviteCode(inviteCode, tgUser);
       if (!newUser) {
         ctx.reply('❌ Неверный код приглашения');
@@ -57,12 +60,20 @@ export class BotService {
     }
 
     if (user.telegramUser?.id === Number(parseEnv('BOT_OWNER_ID'))) {
-      availableMenu.push([
-        {
-          text: '✍🏻 Действия с пользователями',
-          callback_data: 'userActions',
-        },
-      ]);
+      availableMenu.push(
+        [
+          {
+            text: '✍🏻 Действия с пользователями',
+            callback_data: 'userActions',
+          },
+        ],
+        [
+          {
+            text: '💀 Настройки разработчика',
+            callback_data: 'devSettings',
+          },
+        ],
+      );
     }
 
     if (ctx.callbackQuery) {
@@ -197,5 +208,66 @@ export class BotService {
         this.bot.telegram.sendMessage(parseEnv('BOT_OWNER_ID'), content);
         break;
     }
+  }
+
+  @Action('devSettings')
+  async devSettings(@Ctx() ctx: SceneContext) {
+    await ctx.editMessageText('Чо?', {
+      reply_markup: {
+        inline_keyboard: [
+          [Markup.button.callback('🔃 Проверить срок профилей', 'checkProfiles')],
+          [Markup.button.callback('📨 Отправить сообщение всем юзерам в БД', 'sendMessageToAll')],
+        ],
+      },
+    });
+  }
+
+  @Action('checkProfiles')
+  async checkUsers(@Ctx() ctx: SceneContext) {
+    // TODO: add statistic
+    await this.checkUsersExpiration();
+    await ctx.reply('✅ Проверка профилей завершена');
+  }
+
+  @Action('sendMessageToAll')
+  async sendMessageToAll(@Ctx() ctx: SceneContext) {
+    ctx.scene.enter('messageToAll');
+  }
+
+  async checkUsersExpiration() {
+    const { users } = await this.apiService.getAllTableUsers();
+    const expiredStatistic = { expired: 0, active: 0 };
+
+    users.forEach(async (user) => {
+      if (user.expire === '0') return;
+
+      const expireHours = differenceInHours(user.expire, new Date());
+      const expireDistance = formatDistanceToNowStrict(user.expire, { addSuffix: true });
+      if (user.telegramUser && expireHours <= 24 * 3 && expireHours > 0) {
+        await this.bot.telegram.sendMessage(user.telegramUser.id, `⚠️ Ваша подписка закончится ${expireDistance}`);
+        this.logger.warn(`Сообщение об окончании подписки отправлено ${user.username} (${expireDistance})`);
+        return;
+      } else if (expireHours < 0) {
+        expiredStatistic.expired++;
+        await this.apiService.disableUser(user);
+        if (!user.telegramUser || expireHours < -48) return;
+        await this.bot.telegram.sendMessage(user.telegramUser.id, `⚠️ Ваша подписка закончилась ${expireDistance}`);
+        this.logger.warn(`Сообщение об окончании подписки отправлено ${user.username} (${expireDistance})`);
+        return;
+      }
+      expiredStatistic.active++;
+    });
+  }
+
+  async sendToAll(message: string) {
+    const { users } = await this.apiService.getAllTableUsers();
+    let count = 0;
+    users.forEach(async (user) => {
+      if (!user.telegramUser) return;
+      count++;
+      await this.bot.telegram.sendMessage(user.telegramUser.id, message);
+    });
+
+    return count;
   }
 }
