@@ -207,12 +207,11 @@ export class UserActionsWizard {
   async usersShared(@Ctx() ctx: AppWizard<{ vpnUsername: string }> & SceneContext) {
     if (!ctx.message || !('user_shared' in ctx.message)) return;
     const userId = (ctx.message.user_shared as SharedUser).user_id;
-    const tgUser = await this.apiService.findUserByTelegramId(userId);
-    if (!tgUser) {
-      ctx.reply('❌ Пользователь не найден в базе данных, сгенерируйте приглашение');
+    const user = (await ctx.telegram.getChat(userId)) as Chat.PrivateChat;
+    if (!user) {
+      ctx.reply('❌ Пользователь не создал чат с ботом, сгенерируйте приглашение');
       return;
     }
-    const user = (await ctx.telegram.getChat(userId)) as Chat.PrivateChat;
     await this.apiService.connectTelegramId(ctx.wizard.state.vpnUsername, user);
 
     await ctx.reply(`✅ ${user.first_name} успешно привязан к аккаунту ${ctx.wizard.state.vpnUsername}`, {

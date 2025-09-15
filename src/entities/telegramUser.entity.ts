@@ -3,7 +3,7 @@ import { Column, Entity, PrimaryColumn } from 'typeorm';
 
 @Entity()
 export class TelegramUserEntity implements Pick<Chat.PrivateChat, 'id' | 'username' | 'first_name' | 'last_name'> {
-  @PrimaryColumn()
+  @PrimaryColumn({ unique: true })
   id: number;
 
   @Column({ nullable: true })
