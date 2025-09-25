@@ -199,13 +199,14 @@ export class UserActionsWizard {
       Markup.keyboard([
         Markup.button.userRequest('Выбрать аккаунт', ctx.from?.id as number),
         Markup.button.callback('Назад', 'userActions'),
-      ]).oneTime(),
+      ]),
     );
   }
 
   @On('users_shared')
   async usersShared(@Ctx() ctx: AppWizard<{ vpnUsername: string }> & SceneContext) {
     if (!ctx.message || !('user_shared' in ctx.message)) return;
+    // ctx.
     const userId = (ctx.message.user_shared as SharedUser).user_id;
     const user = (await ctx.telegram.getChat(userId)) as Chat.PrivateChat;
     if (!user) {
@@ -214,12 +215,14 @@ export class UserActionsWizard {
     }
     await this.apiService.connectTelegramId(ctx.wizard.state.vpnUsername, user);
 
-    await ctx.reply(`✅ ${user.first_name} успешно привязан к аккаунту ${ctx.wizard.state.vpnUsername}`, {
-      reply_markup: {
-        remove_keyboard: true,
-        inline_keyboard: [backKeyboard],
-      },
-    });
+    await ctx.reply(
+      `✅ ${user.first_name} успешно привязан к аккаунту ${ctx.wizard.state.vpnUsername}`,
+      Markup.removeKeyboard(),
+    );
+    await ctx.reply(
+      'Вы можете вернуться назад или в главное меню',
+      Markup.inlineKeyboard([backToUserListKeyboard, backKeyboard]),
+    );
     await ctx.scene.leave();
   }
 

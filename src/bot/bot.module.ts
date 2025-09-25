@@ -1,5 +1,5 @@
 import { ApiModule } from '@/api/api.module';
-import { parseEnv } from '@/utils/parceEnv';
+import { ENV } from '@/utils/env.helpers';
 import { Module } from '@nestjs/common';
 import { TelegrafModule } from 'nestjs-telegraf';
 import { session } from 'telegraf';
@@ -12,7 +12,7 @@ import { UserActionsWizard } from './userActions.wizard';
 @Module({
   imports: [
     TelegrafModule.forRoot({
-      token: parseEnv('TOKEN'),
+      token: ENV.TOKEN,
       middlewares: [session()],
     }),
     ApiModule,

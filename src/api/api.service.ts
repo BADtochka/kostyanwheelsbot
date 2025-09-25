@@ -11,9 +11,9 @@ import {
   User,
   UsersResponse,
 } from '@/types/User';
+import { ENV } from '@/utils/env.helpers';
 import { generateCode } from '@/utils/generateCode';
 import { getPublicUser } from '@/utils/getPublicUser';
-import { parseEnv } from '@/utils/parceEnv';
 import { parseError } from '@/utils/parseError';
 import { stringifyData } from '@/utils/stringifyData';
 import { tryCatch } from '@/utils/tryCatch';
@@ -28,7 +28,7 @@ import { ApiHelper } from './api.helper';
 @Injectable()
 export class ApiService {
   private readonly _axioxConfig: AxiosRequestConfig = {
-    baseURL: `${parseEnv('API_HOST')}/api`,
+    baseURL: `${ENV.API_HOST || ENV.BACKUP_API_HOST}/api`,
   };
   private axiosInstance: AxiosInstance = axios.create(this._axioxConfig);
   private apiClient = <Request, Response>(config: AxiosRequestConfig<Request>) => {
@@ -63,18 +63,22 @@ export class ApiService {
 
   async authLogin() {
     const adminCreds = stringifyData({
-      username: parseEnv('API_USERNAME'),
-      password: parseEnv('API_PASSWORD'),
+      username: ENV.API_USERNAME,
+      password: ENV.API_PASSWORD,
     });
 
-    const { data } = await this.apiClient<AdminTokenRequest, AdminTokenResponse>({
-      method: 'POST',
-      url: '/admin/token',
-      data: adminCreds,
-    });
+    const { data: apiClientData, error } = await tryCatch(
+      this.apiClient<AdminTokenRequest, AdminTokenResponse>({
+        method: 'POST',
+        url: '/admin/token',
+        data: adminCreds,
+      }),
+    );
 
-    this.axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${data.access_token}`;
-    this.logger.log(`Successfully ${data.token_type} auth`);
+    if (error) throw error;
+
+    this.axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${apiClientData.data.access_token}`;
+    this.logger.log(`Successfully ${apiClientData.data.token_type} auth`);
   }
 
   async createUser(requestData: CreateUserRequest) {
@@ -260,7 +264,7 @@ export class ApiService {
   async getUserLinks(subToken: string) {
     const { data, error } = await tryCatch(
       this.apiClient<undefined, string>({
-        baseURL: parseEnv('API_HOST'),
+        baseURL: ENV.API_HOST,
         method: 'GET',
         url: `${subToken}/links`,
       }),

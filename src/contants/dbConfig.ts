@@ -1,4 +1,4 @@
-import { parseEnv } from '@/utils/parceEnv';
+import { ENV } from '@/utils/env.helpers';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 export const DB_DEV_CONFIG: TypeOrmModuleOptions = {
@@ -10,10 +10,10 @@ export const DB_DEV_CONFIG: TypeOrmModuleOptions = {
 
 export const DB_PROD_CONFIG: TypeOrmModuleOptions = {
   type: 'postgres',
-  host: parseEnv('POSTGRES_HOST'),
-  username: parseEnv('POSTGRES_USER'),
-  password: parseEnv('POSTGRES_PASSWORD'),
-  database: parseEnv('POSTGRES_DB'),
+  host: ENV.POSTGRES_HOST,
+  username: ENV.POSTGRES_USER,
+  password: ENV.POSTGRES_PASSWORD,
+  database: ENV.POSTGRES_DB,
   port: 5432,
   synchronize: true,
   entities: [`./dist/**/*.entity{.ts,.js}`],

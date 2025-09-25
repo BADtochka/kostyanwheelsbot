@@ -25,6 +25,5 @@
   },
   "include": [
     "src",
-    "env.d.ts",
   ]
 }

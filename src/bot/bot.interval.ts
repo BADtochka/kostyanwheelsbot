@@ -1,5 +1,5 @@
 import { ApiService } from '@/api/api.service';
-import { parseEnv } from '@/utils/parceEnv';
+import { ENV } from '@/utils/env.helpers';
 import { tryCatch } from '@/utils/tryCatch';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, Interval } from '@nestjs/schedule';
@@ -32,7 +32,7 @@ export class BotInterval {
 
   @Interval(120 * 1000)
   async pushToKuma() {
-    const isEnabled = String(parseEnv('ENABLE_MONITORING')).toLocaleLowerCase() === 'true';
+    const isEnabled = String(ENV.ENABLE_MONITORING).toLocaleLowerCase() === 'true';
 
     if (!isEnabled) return;
 

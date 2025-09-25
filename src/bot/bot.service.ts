@@ -5,9 +5,10 @@ import { BOT_DENIED } from '@/contants/messages';
 import { requisites } from '@/contants/requisites';
 import { SendToOwner } from '@/types/SendToOwner';
 import { convertBytes } from '@/utils/convertBytes';
+import { ENV } from '@/utils/env.helpers';
 import { escapeMarkdown } from '@/utils/escapeMarkdown';
 import { getInviteTag } from '@/utils/getInviteTag';
-import { parseEnv } from '@/utils/parceEnv';
+import { isOwner } from '@/utils/isOwner';
 import { parseUserLinks } from '@/utils/parseUserLinks';
 import { Logger } from '@nestjs/common';
 import { differenceInDays, differenceInHours, format, formatDistanceToNowStrict, formatISO } from 'date-fns';
@@ -31,61 +32,39 @@ export class BotService {
   @Command('menu')
   @Action('mainMenu')
   async onStart(@Ctx() ctx: SceneContext & Context) {
+    if (ctx.chat?.type !== 'private') return;
     if (ctx.scene.current) ctx.scene.leave();
-    const availableMenu: InlineKeyboardButton[][] = [...mainKeyboard];
+    const availableMenu: InlineKeyboardButton[] = [...mainKeyboard];
     const inviteCode = getInviteTag(ctx.text);
 
-    let user = await this.apiService.findUserByTelegramId(ctx.from?.id!);
+    const user = await this.apiService.findUserByTelegramId(ctx.from?.id!);
 
-    if (!user && !inviteCode && ctx.chat?.type === 'private') {
-      await this.apiService.addTelegramUser(ctx.chat!);
-      ctx.reply(BOT_DENIED);
-      return;
-    }
-
-    if (!user && inviteCode && ctx.chat?.type === 'private') {
+    if (!user) {
       const tgUser = await this.apiService.addTelegramUser(ctx.chat!);
+      if (!inviteCode) return BOT_DENIED;
       const newUser = await this.apiService.connectByInviteCode(inviteCode, tgUser);
       if (!newUser) {
         ctx.reply('❌ Неверный код приглашения');
         return;
       }
-
-      user = newUser;
     }
 
-    if (!user) {
-      ctx.reply(BOT_DENIED);
-      return;
-    }
-
-    if (user.telegramUser?.id === Number(parseEnv('BOT_OWNER_ID'))) {
+    if (isOwner(ctx.from?.id)) {
       availableMenu.push(
-        [
-          {
-            text: '✍🏻 Действия с пользователями',
-            callback_data: 'userActions',
-          },
-        ],
-        [
-          {
-            text: '💀 Настройки разработчика',
-            callback_data: 'devSettings',
-          },
-        ],
+        Markup.button.callback('✍🏻 Действия с пользователями', 'userActions'),
+        Markup.button.callback('💀 Настройки разработчика', 'devSettings'),
       );
     }
 
     if (ctx.callbackQuery) {
-      await ctx.editMessageText('Добро пожаловать в меню бота ♿', {
-        reply_markup: { inline_keyboard: availableMenu },
-      });
+      await ctx.editMessageText(
+        'Добро пожаловать в меню бота ♿',
+        Markup.inlineKeyboard(availableMenu, { columns: 1 }),
+      );
       return;
     }
 
-    ctx.reply('Добро пожаловать в меню бота ♿', {
-      reply_markup: { inline_keyboard: availableMenu },
-    });
+    ctx.reply('Добро пожаловать в меню бота ♿', Markup.inlineKeyboard(availableMenu, { columns: 1 }));
   }
 
   @Action('profile')
@@ -117,7 +96,7 @@ export class BotService {
     }
     profileArray.push(`📅 Действует до: ${dateToExpire}`);
 
-    profileArray.push(`🔗 Подписка: \`\`\`${parseEnv('API_HOST')}${user.subscription_url}\`\`\``);
+    profileArray.push(`🔗 Подписка: \`\`\`${ENV.API_HOST}${user.subscription_url}\`\`\``);
 
     const linksKeyboard: InlineKeyboardButton[] = [
       { text: '🔗 Ссылки на профили', callback_data: `servers:${user.subscription_url}` },
@@ -195,17 +174,17 @@ export class BotService {
   async sendToOwner({ type, content, senderName }: SendToOwner) {
     switch (type) {
       case 'document':
-        this.bot.telegram.sendDocument(parseEnv('BOT_OWNER_ID'), content, {
+        this.bot.telegram.sendDocument(ENV.BOT_OWNER_ID, content, {
           caption: `Вложение от #${senderName}`,
         });
         break;
       case 'photo':
-        this.bot.telegram.sendPhoto(parseEnv('BOT_OWNER_ID'), content, {
+        this.bot.telegram.sendPhoto(ENV.BOT_OWNER_ID, content, {
           caption: `Вложение от #${senderName}`,
         });
         break;
       case 'text':
-        this.bot.telegram.sendMessage(parseEnv('BOT_OWNER_ID'), content);
+        this.bot.telegram.sendMessage(ENV.BOT_OWNER_ID, content);
         break;
     }
   }
