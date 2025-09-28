@@ -20,8 +20,8 @@ import { tryCatch } from '@/utils/tryCatch';
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { randomUUID } from 'crypto';
 import { addDays, differenceInDays, formatISO } from 'date-fns';
-import { Chat } from 'telegraf/types';
 import { Repository } from 'typeorm';
 import { ApiHelper } from './api.helper';
 
@@ -86,14 +86,26 @@ export class ApiService {
       this.apiClient<CreateUserRequest, CreateUserResponse>({
         method: 'POST',
         url: '/user',
-        data: requestData,
+        data: {
+          proxies: {
+            vless: {
+              id: randomUUID(),
+              flow: 'xtls-rprx-vision',
+            },
+          },
+          inbounds: {
+            vless: ['VLESS TCP REALITY'],
+          },
+          group_ids: [1],
+          ...requestData,
+        },
       }),
     );
 
     if (!error) return data.data;
 
     this.logger.error(parseError(error));
-    return null;
+    throw error;
   }
 
   // async getAllInbounds() {
@@ -158,7 +170,7 @@ export class ApiService {
     return null;
   }
 
-  async connectByInviteCode(code: string, telegramUser: Chat.PrivateChat) {
+  async connectByInviteCode(code: string, telegramUser: TelegramUserEntity) {
     this.logger.log(`${telegramUser.username} connecting by invite code: ${code}`);
 
     const user = await this.userRepository.findOneBy({ inviteCode: code });
@@ -177,7 +189,7 @@ export class ApiService {
       return null;
     }
 
-    const { data, error } = await tryCatch(
+    const { error } = await tryCatch(
       this.apiClient<UpdateUserRequest, User>({
         method: 'PUT',
         url: `/user/${username}`,
@@ -186,7 +198,7 @@ export class ApiService {
     );
 
     if (error) {
-      this.logger.error(`Failed to update user: ${username} (second try)`, error);
+      this.logger.error(`Failed to update user: ${username} (PUT method)`, error);
       return null;
     }
 
@@ -215,7 +227,8 @@ export class ApiService {
     return user;
   }
 
-  async connectTelegramId(username: string, telegramUser: Chat.PrivateChat) {
+  async connectTelegramId(username: string, telegramUser: TelegramUserEntity) {
+    await this.addTelegramUser(telegramUser);
     const existTableUser = await this.userRepository.find({
       where: { telegramUser: { id: telegramUser.id } },
       relations: ['telegramUser'],
@@ -226,6 +239,7 @@ export class ApiService {
       user.telegramUser = null;
       await this.userRepository.save(user);
     });
+
     const updatedUser = await this.updateUser(username, {
       telegramUser: telegramUser,
       status: 'active',
@@ -233,7 +247,7 @@ export class ApiService {
     return updatedUser;
   }
 
-  async addTelegramUser(user: Chat.PrivateChat) {
+  async addTelegramUser(user: TelegramUserEntity) {
     return await this.tgUserRepository.save({ ...user });
   }
 

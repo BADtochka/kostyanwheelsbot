@@ -11,7 +11,14 @@ import { getInviteTag } from '@/utils/getInviteTag';
 import { isOwner } from '@/utils/isOwner';
 import { parseUserLinks } from '@/utils/parseUserLinks';
 import { Logger } from '@nestjs/common';
-import { differenceInDays, differenceInHours, format, formatDistanceToNowStrict, formatISO } from 'date-fns';
+import {
+  differenceInDays,
+  differenceInHours,
+  differenceInSeconds,
+  format,
+  formatDistanceToNowStrict,
+  formatISO,
+} from 'date-fns';
 import { Action, Command, Ctx, InjectBot, Start, Update } from 'nestjs-telegraf';
 import { Context, Markup, Scenes, Telegraf } from 'telegraf';
 import { CallbackQuery, InlineKeyboardButton, Update as TelegrafUpdate } from 'telegraf/typings/core/types/typegram';
@@ -76,14 +83,19 @@ export class BotService {
     }
 
     const parsedDate = formatISO(user.expire!);
-    const dateToExpire = user.expire
-      ? `${format(parsedDate, 'dd.MM.yyyy')} (${formatDistanceToNowStrict(parsedDate)})`
-      : '∞';
+    const dateToExpire = () => {
+      if (user.expire === '0') return '📅 Действует до: ∞';
+
+      if (differenceInSeconds(user.expire, new Date()) > 0)
+        return `📅 Действует до: ${format(parsedDate, 'dd.MM.yyyy')} (${formatDistanceToNowStrict(parsedDate)})`;
+      return `⚠️ Подписка закончилась ${formatDistanceToNowStrict(parsedDate)} назад`;
+    };
 
     const profileArray = ['\`💡 Статистика обновляется в 0:00 по МСК\`'];
 
     profileArray.push(escapeMarkdown(`😎 Пользователь: ${user.username}`));
     profileArray.push(`🧑‍💻 Использовано трафика: ${convertBytes(user.used_traffic)}`);
+    profileArray.push(dateToExpire());
 
     if (user.status !== 'active') {
       await ctx.editMessageText(profileArray.join('\n\n'), {
@@ -94,7 +106,6 @@ export class BotService {
       });
       return;
     }
-    profileArray.push(`📅 Действует до: ${dateToExpire}`);
 
     profileArray.push(`🔗 Подписка: \`\`\`${ENV.API_HOST}${user.subscription_url}\`\`\``);
 

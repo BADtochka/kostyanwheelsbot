@@ -16,6 +16,7 @@ const stringToBoolean = () =>
 export const ENV_SCHEME = z.object({
   TOKEN: z.string(),
   BOT_OWNER_ID: stringToNumber(),
+  BOOSTY_GROUP_ID: stringToNumber().optional(),
   API_HOST: z.string(),
   BACKUP_API_HOST: z.string().optional(),
   API_USERNAME: z.string(),

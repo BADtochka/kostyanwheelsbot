@@ -4,7 +4,6 @@ import { AppWizard } from '@/types/SelectedIdWizard';
 import { SharedUser } from '@/types/SharedUser';
 import { convertBytes } from '@/utils/convertBytes';
 import { escapeMarkdown } from '@/utils/escapeMarkdown';
-import { randomUUID } from 'crypto';
 import { addDays, format, formatDistanceToNowStrict, formatISO } from 'date-fns';
 import { Action, Ctx, InjectBot, On, Wizard, WizardStep } from 'nestjs-telegraf';
 import { Context, Markup, Telegraf } from 'telegraf';
@@ -71,18 +70,10 @@ export class UserActionsWizard {
     ctx: WizardContext,
   ) {
     if (!ctx.text) return ctx.sendMessage('❌ Не удалось создать пользователя.');
+    if (ctx.chat?.type !== 'private') return;
 
     const user = await this.apiService.createUser({
       username: ctx.text.replaceAll(' ', ''),
-      proxies: {
-        vless: {
-          id: randomUUID(),
-          flow: 'xtls-rprx-vision',
-        },
-      },
-      inbounds: {
-        vless: ['VLESS TCP REALITY'],
-      },
       expire: formatISO(addDays(new Date(), 31)),
     });
     !user

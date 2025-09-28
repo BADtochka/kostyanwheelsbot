@@ -22,11 +22,12 @@ export interface Admin {
 }
 
 export interface Proxies {}
+export interface NextPlan {}
 export interface Inbounds {}
 export interface ExcludedInbounds {}
 
 export interface User {
-  proxies: Proxies;
+  proxies: Proxies; // заменяет proxy_settings
   expire: string | 0;
   data_limit: number;
   data_limit_reset_strategy: string;
@@ -47,6 +48,8 @@ export interface User {
   subscription_url: string;
   excluded_inbounds: ExcludedInbounds;
   admin: Admin;
+  group_ids: number[];
+  next_plan: NextPlan;
 }
 
 export type UsersResponse = {
